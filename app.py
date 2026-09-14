@@ -6,7 +6,7 @@ import random
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="Ultimate Meme AI Scalper",
+    page_title="Ultimate Meme AI Scalper ($1 Trade)",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -53,8 +53,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ ULTIMATE MEME AI SWARM TERMINAL ($5 CAPITAL)</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Fast Scalping | Volatility & Trend Analysis | On-Chain Wallet Checking | Zero-Lag</p>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #00FF7F;'>⚡ ULTIMATE MEME AI SWARM TERMINAL</h2>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Fast Scalping | <b>$1 Per Transaction</b> | Volatility & Trend Analysis | Zero-Lag</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Daftar Target Meme Coin Populer di Bitget
@@ -93,7 +93,7 @@ if 'trade_history' not in st.session_state:
 if 'active_order' not in st.session_state:
     st.session_state['active_order'] = None
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["Swarm AI (5 Agents) Aktif. Menginisialisasi modul deteksi On-Chain..."]
+    st.session_state['swarm_logs'] = ["Swarm AI Aktif. Mengatur alokasi eksekusi ke $1 per transaksi..."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = {sym: {'wins': 0, 'losses': 0, 'weight': 1.0, 'confidence': 50.0} for sym in MEME_COINS}
 
@@ -110,7 +110,7 @@ if total_eq <= 0.0:
 
 # Metrik Atas
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Mode Bot", "⚡ Fast Scalp", "+0.8% TP")
+c1.metric("Mode Bot", "⚡ Fast Scalp ($1)", "+0.8% TP")
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"Free: ${usdt_free:,.2f}")
 c3.metric("On-Chain Sleuth", "🟢 Wallet Scan", "Active")
 c4.metric("Posisi Aktif", "1 Koin" if st.session_state['active_order'] else "0 Koin", "Max 1")
@@ -121,7 +121,7 @@ st.markdown("---")
 # LOOP LIVE TRADING (3 Detik Eksekusi Super Cepat)
 @st.fragment(run_every=3)
 def run_ultimate_swarm_loop():
-    ALLOCATION = 4.5  # Nominal USDT yang dihabiskan
+    ALLOCATION = 1.0  # Nominal USDT yang dihabiskan diset menjadi $1 per transaksi
     
     # === 1. FASE SCANNING, WALLET CHECK, & BUY ===
     if not st.session_state['active_order']:
@@ -157,10 +157,9 @@ def run_ultimate_swarm_loop():
                     add_swarm_log("Sentinel-X", f"Analisis: {top_coin['symbol']} (Tren: +{top_coin['change']:.2f}%, Volatilitas: {top_coin['volatility']:.1f}%).")
                     
                     # [Agent 2: On-Chain Sleuth] Cek Distribusi Dompet & Konsentrasi Whale (Simulasi Proxy Liquidity)
-                    # Menggunakan logika proxy: koin bervolume ekstrim tiba-tiba sering dimanipulasi whale
                     whale_concentration = random.uniform(30.0, 95.0) 
                     if whale_concentration > 85.0 and len(top_targets) > 1:
-                        add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} dipegang Whale ({whale_concentration:.1f}% konsentrasi dompet). Risiko Rug-Pull! Beralih ke target #2.")
+                        add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} dipegang Whale ({whale_concentration:.1f}% konsentrasi). Risiko Rug-Pull! Beralih target #2.")
                         top_coin = top_targets[1] # Pindah ke koin aman urutan 2
                     else:
                         add_swarm_log("On-Chain Sleuth", f"Wallet Check Aman. Distribusi {top_coin['symbol']} tersebar normal ({whale_concentration:.1f}% Whale hold).")
@@ -186,11 +185,11 @@ def run_ultimate_swarm_loop():
                         'sl': price_to_buy * 0.996       # FAST SL: -0.4%
                     }
                     
-                    add_swarm_log("Guardian", f"Eksekusi FAST SCALP BUY: {sym_to_buy} di ${price_to_buy:.6f}.")
+                    add_swarm_log("Guardian", f"Eksekusi FAST SCALP BUY: {sym_to_buy} di ${price_to_buy:.6f} (Senilai $1).")
                     st.session_state['trade_history'].insert(0, {
                         "Waktu": datetime.now().strftime("%H:%M:%S"),
                         "Token": sym_to_buy,
-                        "Aksi": "FAST BUY",
+                        "Aksi": "FAST BUY ($1)",
                         "Harga": f"${price_to_buy:.6f}",
                         "Status": "Aktif"
                     })

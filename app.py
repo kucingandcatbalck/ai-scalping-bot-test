@@ -8,7 +8,7 @@ import os
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="Adaptive Capital Quant Scalper",
+    page_title="Risk-Managed Quant Scalper",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -105,7 +105,7 @@ if 'trade_history' not in st.session_state:
 if 'active_positions' not in st.session_state:
     st.session_state['active_positions'] = {}
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["Adaptive Capital AI online. Managing micro-balance execution."]
+    st.session_state['swarm_logs'] = ["Risk-Managed AI online. Portfolio tracking active."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = load_ai_memory()
 if 'consecutive_losses' not in st.session_state:
@@ -114,6 +114,10 @@ if 'consecutive_wins' not in st.session_state:
     st.session_state['consecutive_wins'] = 0
 if 'bot_active' not in st.session_state:
     st.session_state['bot_active'] = False  
+
+# Inisialisasi Saldo Awal Referensi untuk Menghitung Persentase Plus/Minus
+if 'initial_balance' not in st.session_state:
+    st.session_state['initial_balance'] = total_eq if total_eq > 0 else 1.0
 
 def add_swarm_log(agent_name, msg):
     t_formatted = datetime.now().strftime("%H:%M:%S")
@@ -150,19 +154,19 @@ def compute_quant_indicators(exchange, symbol):
 # --- SIDEBAR: KONTROL START / STOP & EMERGENCY ---
 with st.sidebar:
     st.markdown("<h3 style='color: #00FF7F;'>🎛️ BOT POWER CONTROL</h3>", unsafe_allow_html=True)
-    st.markdown("Nyalakan bot untuk mengaktifkan alokasi modal adaptif otomatis.")
+    st.markdown("Nyalakan bot untuk mengaktifkan Risk-Manager AI & Portfolio Tracker.")
     
     col_b1, col_b2 = st.columns(2)
     with col_b1:
         if st.button("🚀 START BOT", use_container_width=True):
             st.session_state['bot_active'] = True
-            add_swarm_log("System", "🚀 Bot diaktifkan dengan Adaptive Capital Management.")
+            add_swarm_log("System", "🚀 Bot diaktifkan dengan Risk-Manager AI Shield.")
             st.rerun()
             
     with col_b2:
         if st.button("🛑 STOP / EXIT", use_container_width=True):
             st.session_state['bot_active'] = False
-            add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi posisi aktif...")
+            add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi posisi...")
             
             if st.session_state['active_positions']:
                 for s, p in list(st.session_state['active_positions'].items()):
@@ -184,27 +188,32 @@ with st.sidebar:
             st.rerun()
             
     st.markdown("---")
-    st.markdown("### 🧠 Capital Status")
-    st.metric("Free USDT", f"${usdt_free:.2f}")
+    st.markdown("### 🛡️ Risk-Manager Status")
+    st.metric("Saldo Awal Acuan", f"${st.session_state['initial_balance']:.2f}")
+    st.metric("Loss Streak", f"{st.session_state['consecutive_losses']} / 3 (Circuit Breaker)")
     st.metric("Win Streak", f"{st.session_state['consecutive_wins']} / 3")
-    st.metric("Strategi Tersimpan", f"{len(st.session_state['ai_memory'])} Aset")
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ ADAPTIVE CAPITAL QUANT SCALPER</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #00FF7F;'>⚡ RISK-MANAGED QUANT SCALPER</h2>", unsafe_allow_html=True)
 status_indicator = "🟢 AKTIF (RUNNING)" if st.session_state['bot_active'] else "🔴 BERHENTI (PAUSED)"
-st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Auto-Scale Capital & Positions | Instant Green Exit (+0.1%)</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Tight SL (-0.25%) & Micro-TP (+0.15%) | Live PnL Tracking</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 losses_count = st.session_state['consecutive_losses']
+
+# CIRCUIT BREAKER: Jika loss 3x berturut-turut, AI otomatis mematikan bot
+if losses_count >= 3 and st.session_state['bot_active']:
+    st.session_state['bot_active'] = False
+    add_swarm_log("Risk-Manager", "🚨 CIRCUIT BREAKER TRIGGERED! 3x Loss beruntun terdeteksi. Bot otomatis dipause untuk melindungi modal.")
+
 if losses_count >= 2:
-    mode_status = "🛡️ DEEP RECOVERY SHIELD"
-    min_volume_filter = 100000
+    mode_status = "🛡️ DEEP RISK SHIELD"
+    min_volume_filter = 150000
 else:
-    mode_status = "⚡ ADAPTIVE TRADING MODE"
+    mode_status = "⚡ OPTIMAL RISK MODE"
     min_volume_filter = 20000
 
 active_count = len(st.session_state['active_positions'])
 
-# ADAPTIVE POSITION LIMIT BERDASARKAN SALDO (Modal kecil = 1 koin dulu, bertambah seiring profit)
 if usdt_free < 4.0:
     max_allowed_positions = 1
 elif usdt_free < 8.0:
@@ -212,18 +221,23 @@ elif usdt_free < 8.0:
 else:
     max_allowed_positions = 4
 
+# HITUNG PERFORMA SALDO AWAL (PLUS / MINUS %)
+init_bal = st.session_state['initial_balance']
+pnl_dollar = total_eq - init_bal
+pnl_pct = ((total_eq - init_bal) / init_bal) * 100 if init_bal > 0 else 0.0
+
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Swarm Status", mode_status, f"Loss Streak: {losses_count}")
-c2.metric("Total Saldo", f"${total_eq:,.2f}", f"Free: ${usdt_free:,.2f}")
-c3.metric("Active Positions", f"{active_count} / {max_allowed_positions}", "Auto-Scaled Limit")
-c4.metric("Target Scalp", "Instant Green (+0.1%)", "1-Sec Cadence")
-c5.metric("Model", "RSI + EMA Quant", "Active")
+c1.metric("Risk Status", mode_status, f"Loss Streak: {losses_count}")
+c2.metric("Total Saldo", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}% (${pnl_dollar:+,.2f})")
+c3.metric("Active Positions", f"{active_count} / {max_allowed_positions}", "Auto-Scaled")
+c4.metric("Target Scalp", "+0.15% TP", "Ultra-Tight SL (-0.25%)")
+c5.metric("Cadence", "1 Second", "Real-Time")
 
 st.markdown("---")
 
-# LOOP LIVE TRADING UTAMA (CADENCE 1 DETIK DENGAN ADAPTIVE CAPITAL)
+# LOOP LIVE TRADING UTAMA (CADENCE 1 DETIK DENGAN RISK MANAGEMENT & PnL TRACKER)
 @st.fragment(run_every=1)
-def run_adaptive_trading_loop():
+def run_risk_managed_loop():
     if not st.session_state.get('bot_active', False):
         return
 
@@ -231,7 +245,7 @@ def run_adaptive_trading_loop():
         all_tickers = exchange.fetch_tickers()
         all_usdt_coins = [sym for sym in all_tickers.keys() if sym.endswith('/USDT')]
         
-        # === 1. FASE SCANNING & ADAPTIVE ALLOCATION (1 DETIK) ===
+        # === 1. FASE SCANNING & RISK-MANAGED ENTRY (1 DETIK) ===
         if active_count < max_allowed_positions and usdt_free > 1.0:
             existing_syms = list(st.session_state['active_positions'].keys())
             major_coins = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
@@ -254,7 +268,7 @@ def run_adaptive_trading_loop():
             for cand in pre_candidates:
                 sym = cand['symbol']
                 rsi, ema, uptrend = compute_quant_indicators(exchange, sym)
-                if rsi is not None and uptrend and (40 <= rsi <= 72):
+                if rsi is not None and uptrend and (42 <= rsi <= 68):
                     selected_target = {'symbol': sym, 'price': cand['price'], 'rsi': rsi}
                     break
             
@@ -262,21 +276,18 @@ def run_adaptive_trading_loop():
                 sym_to_buy = selected_target['symbol']
                 price_to_buy = selected_target['price']
                 
-                add_swarm_log("Sentinel-X", f"Quant Validated: {sym_to_buy} (RSI: {selected_target['rsi']:.1f}).")
+                add_swarm_log("Sentinel-X", f"Risk-Validated Asset: {sym_to_buy} (RSI: {selected_target['rsi']:.1f}).")
 
                 if sym_to_buy not in st.session_state['ai_memory']:
                     st.session_state['ai_memory'][sym_to_buy] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
 
-                # CEK ATURAN MINIMUM KECIL DARI BURSA
                 market_info = exchange.market(sym_to_buy)
                 min_cost = market_info.get('limits', {}).get('cost', {}).get('min', 1.0)
                 
-                # Alokasi adaptif: gunakan sisa saldo bebas dibagi sisa slot, atau minimum cost koin tersebut (mana yang pas)
                 slots_left = max(1, max_allowed_positions - active_count)
                 calculated_allocation = usdt_free / slots_left
-                order_allocation = max(min_cost, round(calculated_allocation * 0.95, 2)) # Sisakan sedikit untuk fee
+                order_allocation = max(min_cost, round(calculated_allocation * 0.95, 2))
 
-                # Pastikan saldo cukup
                 if usdt_free >= order_allocation:
                     buy_params = {'createMarketBuyOrderRequiresPrice': False}
                     exchange.create_market_buy_order(sym_to_buy, order_allocation, buy_params)
@@ -285,11 +296,12 @@ def run_adaptive_trading_loop():
                     st.session_state['active_positions'][sym_to_buy] = {
                         'entry': price_to_buy,
                         'amount': est_coin_amount,
-                        'target': price_to_buy * 1.001,  # TP +0.1% (Instant Green Exit)
-                        'sl': price_to_buy * 0.995       # SL -0.5%
+                        'target': price_to_buy * 1.0015,  # TP +0.15%
+                        'sl': price_to_buy * 0.9975       # TIGHT SL -0.25%
                     }
                     
-                    add_swarm_log("Guardian-Risk", f"⚡ BUY: {sym_to_buy} at ${price_to_buy:.5f} (Adaptive Size: ${order_allocation:.2f}).")
+                    add_swarm_log("Risk-Manager", f"🛡️ SL Locked at -0.25%, TP at +0.15% for {sym_to_buy}.")
+                    
                     st.session_state['trade_history'].insert(0, {
                         "Waktu": datetime.now().strftime("%H:%M:%S"),
                         "Token": sym_to_buy,
@@ -299,16 +311,20 @@ def run_adaptive_trading_loop():
                     })
                     st.rerun()
 
-        # === 2. FASE PANTAU DAN KELUAR INSTANT PROFIT (1 DETIK) ===
+        # === 2. FASE PANTAU DAN KELUAR AMAN (1 DETIK) ===
         if st.session_state['active_positions']:
             for sym, pos in list(st.session_state['active_positions'].items()):
                 if sym in all_tickers and all_tickers[sym].get('last'):
                     current_price = float(all_tickers[sym]['last'])
                     pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
                     
+                    if pnl_pct >= 0.08 and pos['sl'] < pos['entry']:
+                        pos['sl'] = pos['entry']
+                        add_swarm_log("Risk-Manager", f"🔒 Break-Even Shield activated for {sym}! SL moved to entry.")
+
                     if current_price >= pos['target'] or current_price <= pos['sl']:
                         action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                        add_swarm_log("Guardian-Risk", f"{sym} reached {action_type} ({pnl_pct:+.2f}%). Closing instantly...")
+                        add_swarm_log("Guardian-Risk", f"{sym} triggered {action_type} ({pnl_pct:+.2f}%). Exiting immediately...")
                         
                         base_coin = sym.split('/')[0]
                         try:
@@ -330,13 +346,13 @@ def run_adaptive_trading_loop():
                                 st.session_state['consecutive_losses'] -= 1
                             
                             st.session_state['consecutive_wins'] += 1
-                            add_swarm_log("Nexus-Learner", f"🎯 PROFIT LOCKED ({sym})! Win streak: {st.session_state['consecutive_wins']}/3.")
+                            add_swarm_log("Nexus-Learner", f"🎯 MICRO-PROFIT SECURED ({sym})! Streak: {st.session_state['consecutive_wins']}/3.")
                         else:
                             mem_update['losses'] += 1
                             mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
                             st.session_state['consecutive_losses'] += 1
                             st.session_state['consecutive_wins'] = 0
-                            add_swarm_log("Nexus-Learner", f"🛡️ STOP-LOSS ({sym}). Streak reset.")
+                            add_swarm_log("Risk-Manager", f"🛡️ TIGHT LOSS CUT ({sym}). Loss minimized successfully.")
 
                         save_ai_memory(st.session_state['ai_memory'])
 
@@ -352,21 +368,21 @@ def run_adaptive_trading_loop():
                         st.rerun()
 
     except Exception as e:
-        add_swarm_log("System", f"Adaptive Loop Error: {str(e)}")
+        add_swarm_log("System", f"Risk Loop Error: {str(e)}")
 
     # === LAYOUT TAMPILAN ===
     col_left, col_right = st.columns([1.5, 1])
     
     with col_left:
-        st.subheader("📋 Riwayat Transaksi Adaptive Scalp")
+        st.subheader("📋 Riwayat Transaksi Risk-Managed Scalp")
         if st.session_state['trade_history']:
             df_hist = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(df_hist, width='stretch', hide_index=True)
         else:
-            st.info("Klik tombol **START BOT** di sidebar untuk mulai Adaptive Scalping...")
+            st.info("Klik tombol **START BOT** di sidebar untuk mulai Risk-Managed Scalping...")
             
     with col_right:
-        st.subheader("🤖 Adaptive Quant Stream")
+        st.subheader("🤖 AI Risk Management Stream")
         for log_html in st.session_state['swarm_logs']:
             st.markdown(log_html, unsafe_allow_html=True)
             
@@ -382,6 +398,6 @@ def run_adaptive_trading_loop():
                     unsafe_allow_html=True
                 )
         else:
-            st.info("AI sedang memindai pasar dengan alokasi modal adaptif...")
+            st.info("Risk-Manager AI aktif mengawasi ketat setiap transaksi...")
 
-run_adaptive_trading_loop()
+run_risk_managed_loop()

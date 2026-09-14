@@ -44,7 +44,7 @@ st.markdown("<h2 style='color: #00FF7F;'>⚡ BITGET LIVE REAL-TRADING TERMINAL (
 st.markdown("<p style='color: #8b949e;'>Connected to Bitget Spot Live API | Single Position Mode ($4.5 Allocation)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Inisialisasi Exchange Bitget Live (Diperbarui dengan opsi fix Market Buy)
+# Inisialisasi Exchange Bitget Live
 @st.cache_resource
 def init_bitget_live():
     return ccxt.bitget({
@@ -52,10 +52,7 @@ def init_bitget_live():
         'secret': st.secrets["BITGET_SECRET"],
         'password': st.secrets["BITGET_PASSWORD"],
         'enableRateLimit': True,
-        'options': {
-            'defaultType': 'spot',
-            'createMarketBuyOrderRequiresPrice': False  # FIX: Izinkan pembelian menggunakan nominal USDT langsung
-        }
+        'options': {'defaultType': 'spot'}
     })
 
 try:
@@ -101,8 +98,9 @@ st.markdown("---")
 # Loop Live Trading (2 Detik)
 @st.fragment(run_every=2)
 def run_live_bitget_loop():
-    ALLOCATION = 4.5  # Nominal USDT yang dihabiskan
+    ALLOCATION = 4.5  # Nominal USDT yang dihabiskan per order
     
+    # 1. LOGIKA BELI (BUY)
     if not st.session_state['active_order']:
         if usdt_free >= ALLOCATION:
             target_symbols = ['XRP/USDT', 'DOGE/USDT', 'SOL/USDT', 'ADA/USDT']
@@ -114,23 +112,22 @@ def run_live_bitget_loop():
                 
                 add_log(f"Mengirim order BUY riil {sym} senilai ${ALLOCATION} USDT...")
                 
-                # EKSEKUSI ORDER BUY RIIL: Kita mengirimkan nilai USDT (ALLOCATION) langsung
-                buy_order = exchange.create_market_buy_order(sym, ALLOCATION)
+                # FIX ERROR DI SINI: Memaksa parameter require price false di dalam instruksi order
+                buy_params = {'createMarketBuyOrderRequiresPrice': False}
+                buy_order = exchange.create_market_buy_order(sym, ALLOCATION, buy_params)
                 
-                # Menghitung jumlah koin yang benar-benar didapat (Jika kosong dari API, gunakan estimasi)
-                actual_coin_amount = buy_order.get('filled')
-                if not actual_coin_amount or actual_coin_amount == 0:
-                    actual_coin_amount = ALLOCATION / price
+                # Asumsi jumlah koin kotor sebelum fee
+                est_coin_amount = ALLOCATION / price
                 
                 st.session_state['active_order'] = {
                     'symbol': sym,
                     'entry': price,
-                    'amount': actual_coin_amount,
+                    'amount': est_coin_amount,
                     'target': price * 1.012,  # TP +1.2%
                     'sl': price * 0.994       # SL -0.6%
                 }
                 
-                add_log(f"Berhasil Beli {sym} (Dapat {actual_coin_amount:.4f} koin) di harga ${price:.4f}!")
+                add_log(f"Berhasil Beli {sym} di harga ${price:.4f}!")
                 st.session_state['trade_history'].insert(0, {
                     "Waktu": datetime.now().strftime("%H:%M:%S"),
                     "Token": sym,
@@ -144,6 +141,7 @@ def run_live_bitget_loop():
         else:
             add_log(f"Menunggu Saldo USDT Free minimal ${ALLOCATION} (Saat ini: ${usdt_free:.2f})")
 
+    # 2. LOGIKA JUAL (SELL / TP / SL)
     else:
         pos = st.session_state['active_order']
         sym = pos['symbol']
@@ -155,12 +153,21 @@ def run_live_bitget_loop():
             
             if current_price >= pos['target'] or current_price <= pos['sl']:
                 action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                add_log(f"Target {action_type} tersentuh. Mengirim order SELL riil...")
+                add_log(f"Target {action_type} tersentuh. Menghitung saldo {sym} riil...")
                 
-                # EKSEKUSI ORDER SELL RIIL: Kita mengirimkan jumlah KOIN (bukan USDT)
-                sell_order = exchange.create_market_sell_order(sym, pos['amount'])
+                # FIX SELL ERROR: Cek saldo koin bersih hasil potongan fee dari bursa
+                base_coin = sym.split('/')[0] # Ambil nama koinnya saja (misal 'DOGE')
+                try:
+                    current_bal = exchange.fetch_balance()
+                    actual_coin_to_sell = current_bal['free'].get(base_coin, pos['amount'] * 0.999)
+                except:
+                    # Fallback potong 0.1% secara manual jika API gagal fetch
+                    actual_coin_to_sell = pos['amount'] * 0.999 
+
+                # Mengeksekusi perintah Jual ke USDT
+                sell_order = exchange.create_market_sell_order(sym, actual_coin_to_sell)
                 
-                add_log(f"Posisi {sym} ditutup di ${current_price:.4f} (PnL: {pnl_pct:+.2f}%)")
+                add_log(f"Posisi {sym} berhasil ditutup di ${current_price:.4f} (PnL: {pnl_pct:+.2f}%)")
                 st.session_state['trade_history'].insert(0, {
                     "Waktu": datetime.now().strftime("%H:%M:%S"),
                     "Token": sym,

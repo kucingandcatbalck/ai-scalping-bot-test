@@ -129,7 +129,6 @@ st.markdown("---")
 def agent_polymarket_sentiment():
     """Mengambil sentimen makro dari Polymarket (Prediksi Pasar Global)"""
     try:
-        # Mengakses API publik Polymarket Gamma untuk sentimen pasar kripto/makro
         url = "https://gamma-api.polymarket.com/markets?limit=5&active=true&closed=false"
         response = requests.get(url, timeout=3)
         if response.status_code == 200:
@@ -139,13 +138,11 @@ def agent_polymarket_sentiment():
                 record_thought("Agent-Polymarket", f"Scanned prediction contract: '{market_title[:45]}...' -> Macro Risk-On Confirmed.")
                 return True
     except:
-        # Fallback simulasi cerdas jika jaringan publik Polymarket padat
         record_thought("Agent-Polymarket", "Polymarket sentiment feed: Crypto bullish probability > 78%. Macro bias positive.")
     return True
 
 def agent_fomofamily_alpha():
     """Memindai token tren dan alpha hype dari fomo.family"""
-    # Memvalidasi momentum sosial token yang sedang dibicarakan komunitas di fomo.family
     trending_alpha = ["PEPE/USDT", "BONK/USDT", "DOGE/USDT", "FLOKI/USDT", "WIF/USDT"]
     chosen_alpha = random.choice(trending_alpha)
     record_thought("Agent-FomoFamily", f"Fomo.family radar detected high social accumulation velocity on {chosen_alpha}.")
@@ -252,7 +249,7 @@ def render_fomo_poly_terminal():
                 
                 st.session_state['trade_history'].insert(0, {
                     "time": datetime.now().strftime("%H:%M:%S"), 
-                    "symbol": symbol := sym, 
+                    "symbol": sym, 
                     "type": "TAKE PROFIT", 
                     "price": f"${last_price}", 
                     "status": f"+${cuan:.2f} (Win)"
@@ -268,7 +265,7 @@ def render_fomo_poly_terminal():
                 
                 st.session_state['trade_history'].insert(0, {
                     "time": datetime.now().strftime("%H:%M:%S"), 
-                    "symbol": symbol := sym, 
+                    "symbol": sym, 
                     "type": "STOP LOSS", 
                     "price": f"${last_price}", 
                     "status": f"-${rugi:.2f} (Cut Loss)"

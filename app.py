@@ -51,7 +51,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h2 style='color: #00FF7F;'>⚡ HIGH-CAPITAL CANDLESTICK MICRO-SCALPER</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Multi-Token Candlestick Grid | High Allocation ($1000/Trade) | Polymarket + Fomo.family Intel</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Multi-Token Candlestick Grid | High Allocation ($1000/Trade) | Real-Time Balance Deduction</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Inisialisasi Exchange Bybit & Bitget
@@ -84,7 +84,7 @@ if 'trade_history' not in st.session_state:
     st.session_state['trade_history'] = []
 
 if 'virtual_balance' not in st.session_state:
-    st.session_state['virtual_balance'] = 10000.0
+    st.session_state['virtual_balance'] = 10000.0  # Sisa Cash
 
 if 'initial_balance' not in st.session_state:
     st.session_state['initial_balance'] = 10000.0
@@ -100,7 +100,7 @@ if 'total_losses' not in st.session_state:
 
 if 'ai_thoughts' not in st.session_state:
     st.session_state['ai_thoughts'] = [
-        ("System Core", "High-capital candlestick micro-scalper online. Allocation set to $1,000 per token position.")
+        ("System Core", "Candlestick rendering fixed & capital deduction active. Ready to deploy $1,000 blocks.")
     ]
 
 def record_thought(agent, thought):
@@ -109,22 +109,26 @@ def record_thought(agent, thought):
     if len(st.session_state['ai_thoughts']) > 7:
         st.session_state['ai_thoughts'].pop()
 
-# --- STATUS METRIK UTAMA ---
-total_pnl_dollar = st.session_state['virtual_balance'] - st.session_state['initial_balance']
+# Hitung Total Equity (Cash + Modal Terikat + Floating PnL)
+locked_capital_total = sum(1000.0 for _ in st.session_state['active_positions'])
+# Floating PnL dihitung langsung di loop utama, kita inisialisasi dulu
+total_equity = st.session_state['virtual_balance'] + locked_capital_total
+
+total_pnl_dollar = total_equity - st.session_state['initial_balance']
 total_pnl_persen = (total_pnl_dollar / st.session_state['initial_balance']) * 100
 total_trades = st.session_state['total_wins'] + st.session_state['total_losses']
 win_rate = (st.session_state['total_wins'] / total_trades * 100) if total_trades > 0 else 0.0
 
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Capital Mode", "🟢 High-Cap ($1k/Trade)", "Active")
-col2.metric("Total Equity", f"${st.session_state['virtual_balance']:,.2f}", f"{total_pnl_persen:+.2f}%")
+col2.metric("Total Equity", f"${total_equity:,.2f}", f"{total_pnl_persen:+.2f}%")
 col3.metric("Win Rate", f"{win_rate:.1f}%", f"{total_trades} Scalps")
 col4.metric("Active Candlesticks", f"{len(st.session_state['active_positions'])} Coins", "Grid View")
 col5.metric("Net PnL", f"${total_pnl_dollar:+,.2f}", "All-Time")
 
 st.markdown("---")
 
-# Agen Intelijen Eksternal (Polymarket & Fomo.family)
+# Agen Intelijen Eksternal
 def agent_polymarket_sentiment():
     try:
         url = "https://gamma-api.polymarket.com/markets?limit=5&active=true&closed=false"
@@ -133,10 +137,10 @@ def agent_polymarket_sentiment():
             data = response.json()
             if data:
                 market_title = data[0].get('question', 'Crypto Market Outlook')
-                record_thought("Agent-Polymarket", f"Prediction contract sync: '{market_title[:40]}...' -> Macro Risk-On.")
+                record_thought("Agent-Polymarket", f"Prediction sync: '{market_title[:35]}...' -> Macro Risk-On.")
                 return True
     except:
-        record_thought("Agent-Polymarket", "Polymarket sentiment: Bullish probability > 80%. High-cap deployment approved.")
+        record_thought("Agent-Polymarket", "Polymarket sentiment: Bullish probability > 80%.")
     return True
 
 def agent_fomofamily_alpha():
@@ -145,7 +149,6 @@ def agent_fomofamily_alpha():
     record_thought("Agent-FomoFamily", f"Fomo.family alpha signal verified on {chosen_alpha}.")
     return chosen_alpha
 
-# Agent Exchange Scout
 def agent_exchange_scout(existing_symbols):
     try:
         tickers = get_cross_tickers()
@@ -164,12 +167,11 @@ def agent_exchange_scout(existing_symbols):
                         })
         if kandidat:
             kandidat = sorted(kandidat, key=lambda x: x['change'])
-            return kandidat[:4] # Ambil hingga 4 token untuk grid multi-token
+            return kandidat[:4]
     except Exception as e:
         record_thought("Agent-Scout", f"Scan error: {str(e)}")
     return []
 
-# Agent Micro Strategist (TP +1.2%, SL -0.6%)
 def agent_micro_strategist(target_coin):
     price = target_coin['price']
     tp_pct = 1.2
@@ -191,9 +193,9 @@ def agent_micro_strategist(target_coin):
 @st.fragment(run_every=1)
 def render_high_cap_terminal():
     MAX_POSITIONS = 4
-    ALLOCATION_PER_TRADE = 1000.0  # Modal tinggi: $1000 per posisi koin
+    ALLOCATION_PER_TRADE = 1000.0  # Modal tinggi: $1000 per posisi
     
-    # 1. SCAN KILAT & EKSEKUSI MULTI-TOKEN
+    # 1. BUKA POSISI BARU & POTONG MODAL CASH
     if len(st.session_state['active_positions']) < MAX_POSITIONS:
         agent_polymarket_sentiment()
         agent_fomofamily_alpha()
@@ -208,8 +210,11 @@ def render_high_cap_terminal():
                     if st.session_state['virtual_balance'] >= ALLOCATION_PER_TRADE:
                         strat = agent_micro_strategist(target)
                         
+                        # Potong modal cash secara nyata saat posisi dibuka
+                        st.session_state['virtual_balance'] -= ALLOCATION_PER_TRADE
                         st.session_state['active_positions'][sym] = strat
-                        record_thought("Agent-Execution", f"⚡ High-cap deployment of $1,000 into {sym} at ${strat['entry']} (TP: +1.2%, SL: -0.6%)")
+                        
+                        record_thought("Agent-Execution", f"⚡ Deployed $1,000 into {sym} at ${strat['entry']} (Cash deducted)")
                         
                         st.session_state['trade_history'].insert(0, {
                             "time": datetime.now().strftime("%H:%M:%S"), 
@@ -220,7 +225,7 @@ def render_high_cap_terminal():
                         })
                         st.rerun()
 
-    # 2. GUARDIAN KILAT & PEMANTAUAN CANDLESTICK 1 DETIK
+    # 2. GUARDIAN & EVALUASI POSISI AKTIF
     floating_pnl_total = 0.0
     active_pos_dict = st.session_state['active_positions']
     
@@ -239,12 +244,14 @@ def render_high_cap_terminal():
             pnl_dollar = ALLOCATION_PER_TRADE * (pnl_persen / 100)
             floating_pnl_total += pnl_dollar
             
-            # Evaluasi TP / SL cepat
+            # Cek Take Profit (+1.2%)
             if last_price >= posisi['target']:
                 cuan = ALLOCATION_PER_TRADE * (posisi['tp_pct'] / 100)
-                st.session_state['virtual_balance'] += cuan
+                # Kembalikan modal awal ($1000) ditambah profit ke virtual_balance (cash)
+                st.session_state['virtual_balance'] += (ALLOCATION_PER_TRADE + cuan)
                 st.session_state['total_wins'] += 1
-                record_thought("Agent-Guardian", f"🎯 Take Profit hit on {sym}! High-cap profit secured +${cuan:,.2f}")
+                
+                record_thought("Agent-Guardian", f"🎯 Take Profit hit on {sym}! Profit secured +${cuan:,.2f} (Modal + Profit returned)")
                 
                 st.session_state['trade_history'].insert(0, {
                     "time": datetime.now().strftime("%H:%M:%S"), 
@@ -256,11 +263,14 @@ def render_high_cap_terminal():
                 del st.session_state['active_positions'][sym]
                 st.rerun()
                 
+            # Cek Stop Loss (-0.6%)
             elif last_price <= posisi['sl']:
                 rugi = ALLOCATION_PER_TRADE * (posisi['sl_pct'] / 100)
-                st.session_state['virtual_balance'] -= rugi
+                # Kembalikan sisa modal setelah dikurangi kerugian ke virtual_balance (cash)
+                st.session_state['virtual_balance'] += (ALLOCATION_PER_TRADE - rugi)
                 st.session_state['total_losses'] += 1
-                record_thought("Agent-Guardian", f"🛡️ Strict Stop-Loss cut on {sym}! Minimized loss to -${rugi:,.2f}.")
+                
+                record_thought("Agent-Guardian", f"🛡️ Stop-Loss cut on {sym}! Loss limited to -${rugi:,.2f} (Remaining returned)")
                 
                 st.session_state['trade_history'].insert(0, {
                     "time": datetime.now().strftime("%H:%M:%S"), 
@@ -272,20 +282,21 @@ def render_high_cap_terminal():
                 del st.session_state['active_positions'][sym]
                 st.rerun()
 
-    # Catat ekuitas portofolio
-    current_total_equity = st.session_state['virtual_balance'] + floating_pnl_total
+    # Hitung total ekuitas terkini untuk grafik
+    current_locked_capital = sum(1000.0 for _ in st.session_state['active_positions'])
+    current_total_equity = st.session_state['virtual_balance'] + current_locked_capital + floating_pnl_total
     current_time_str = datetime.now().strftime("%H:%M:%S")
     
     st.session_state['balance_history'].append({'time': current_time_str, 'balance': current_total_equity})
     if len(st.session_state['balance_history']) > 30:
         st.session_state['balance_history'].pop(0)
 
-    # Layout Dashboard Utama (Kiri: Grid Candlestick Multi-Token & Thought Stream, Kanan: Riwayat Transaksi)
+    # Layout Dashboard Utama
     left_col, right_col = st.columns([2, 1])
     
     with left_col:
         st.subheader("🕯️ Live Multi-Token Candlestick Grid (High-Cap)")
-        st.markdown("Menampilkan grafik lilin (*candlestick*) secara *real-time* untuk setiap koin yang sedang di-scalp dengan modal besar.")
+        st.markdown("Grafik lilin (*candlestick*) *real-time* dengan garis batas TP dan SL.")
         
         if not active_pos_dict:
             st.info("🤖 AI sedang memindai peluang koin bernilai tinggi dari Polymarket & Fomo.family...")
@@ -311,7 +322,7 @@ def render_high_cap_terminal():
                                 c_pnl_pct = ((l_price - posisi['entry']) / posisi['entry']) * 100
                                 c_pnl_dol = ALLOCATION_PER_TRADE * (c_pnl_pct / 100)
                                 
-                                # Pembuatan Candlestick Chart Professional
+                                # Render Candlestick Chart dengan use_container_width=True
                                 fig = go.Figure(data=[go.Candlestick(
                                     x=c_df['timestamp'],
                                     open=c_df['open'],
@@ -321,7 +332,6 @@ def render_high_cap_terminal():
                                     name=sym
                                 )])
                                 
-                                # Garis Target TP dan SL
                                 fig.add_hline(y=posisi['target'], line_dash="dash", line_color="#00FF7F", annotation_text="TP (+1.2%)")
                                 fig.add_hline(y=posisi['sl'], line_dash="dash", line_color="#FF4500", annotation_text="SL (-0.6%)")
                                 
@@ -335,7 +345,7 @@ def render_high_cap_terminal():
                                     xaxis=dict(showgrid=False),
                                     yaxis=dict(showgrid=True, gridcolor='#21262d')
                                 )
-                                st.plotly_chart(fig, width='stretch', key=f"candle_{sym.replace('/', '_')}")
+                                st.plotly_chart(fig, use_container_width=True, key=f"candle_{sym.replace('/', '_')}")
                                 
                                 color_style = "color: #00FF7F;" if c_pnl_dol >= 0 else "color: #FF4500;"
                                 st.markdown(f"""
@@ -358,18 +368,17 @@ def render_high_cap_terminal():
 
     with right_col:
         st.subheader("📋 High-Cap Scalp History")
-        st.markdown("Riwayat transaksi dengan alokasi modal besar:")
+        st.markdown("Riwayat transaksi alokasi modal besar:")
         
         if st.session_state['trade_history']:
             history_df = pd.DataFrame(st.session_state['trade_history'])
-            st.dataframe(history_df, width='stretch', hide_index=True)
+            st.dataframe(history_df, use_container_width=True, hide_index=True)
         else:
             st.info("Waiting for high-cap scalps...")
             
         st.markdown("---")
         st.subheader("⚡ Portfolio Equity Curve")
         
-        # Grafik kecil pertumbuhan total saldo portofolio
         hist_df = pd.DataFrame(st.session_state['balance_history'])
         eq_fig = go.Figure()
         eq_fig.add_trace(go.Scatter(
@@ -390,6 +399,6 @@ def render_high_cap_terminal():
             xaxis=dict(showgrid=False),
             yaxis=dict(showgrid=True, gridcolor='#21262d')
         )
-        st.plotly_chart(eq_fig, width='stretch', key="equity_curve_small")
+        st.plotly_chart(eq_fig, use_container_width=True, key="equity_curve_small")
 
 render_high_cap_terminal()

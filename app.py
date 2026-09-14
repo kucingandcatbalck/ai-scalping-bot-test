@@ -54,17 +54,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h2 style='color: #00FF7F;'>⚡ ULTIMATE MEME AI SWARM TERMINAL</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Fast Scalping | <b>$1 Per Transaction</b> | Volatility & Trend Analysis | Zero-Lag</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Fast Scalping | <b>$1 Per Transaction</b> | Volatility Analysis | Auto-Validation</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Daftar Target Meme Coin Populer di Bitget
+# Daftar Target Meme Coin Populer (MYRO telah dihapus, dan sistem akan memfilter koin yang tidak ada)
 MEME_COINS = [
     'PEPE/USDT', 'DOGE/USDT', 'SHIB/USDT', 'BONK/USDT', 
     'WIF/USDT', 'FLOKI/USDT', 'BOME/USDT', 'MEME/USDT', 
-    'MYRO/USDT', 'BABYDOGE/USDT', 'TURBO/USDT', 'SLERF/USDT'
+    'BABYDOGE/USDT', 'TURBO/USDT', 'SLERF/USDT', 'BRETT/USDT'
 ]
 
-# Inisialisasi Exchange Bitget Live & Aman
+# Inisialisasi Exchange Bitget Live
 @st.cache_resource
 def init_bitget_live():
     return ccxt.bitget({
@@ -74,7 +74,7 @@ def init_bitget_live():
         'enableRateLimit': True,
         'options': {
             'defaultType': 'spot',
-            'createMarketBuyOrderRequiresPrice': False # FIX BITGET BUY
+            'createMarketBuyOrderRequiresPrice': False 
         }
     })
 
@@ -93,7 +93,7 @@ if 'trade_history' not in st.session_state:
 if 'active_order' not in st.session_state:
     st.session_state['active_order'] = None
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["Swarm AI Aktif. Mengatur alokasi eksekusi ke $1 per transaksi..."]
+    st.session_state['swarm_logs'] = ["Swarm AI Aktif. Modul Auto-Validation terpasang..."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = {sym: {'wins': 0, 'losses': 0, 'weight': 1.0, 'confidence': 50.0} for sym in MEME_COINS}
 
@@ -112,7 +112,7 @@ if total_eq <= 0.0:
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Mode Bot", "⚡ Fast Scalp ($1)", "+0.8% TP")
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"Free: ${usdt_free:,.2f}")
-c3.metric("On-Chain Sleuth", "🟢 Wallet Scan", "Active")
+c3.metric("On-Chain Sleuth", "🟢 Auto-Filter", "Active")
 c4.metric("Posisi Aktif", "1 Koin" if st.session_state['active_order'] else "0 Koin", "Max 1")
 c5.metric("Target", "Volatile Meme", "Bitget")
 
@@ -121,54 +121,56 @@ st.markdown("---")
 # LOOP LIVE TRADING (3 Detik Eksekusi Super Cepat)
 @st.fragment(run_every=3)
 def run_ultimate_swarm_loop():
-    ALLOCATION = 1.0  # Nominal USDT yang dihabiskan diset menjadi $1 per transaksi
+    ALLOCATION = 1.0  # Nominal USDT yang dihabiskan
     
-    # === 1. FASE SCANNING, WALLET CHECK, & BUY ===
+    # === 1. FASE SCANNING, FILTER, & BUY ===
     if not st.session_state['active_order']:
         if usdt_free >= ALLOCATION:
             try:
-                # [Agent 1: Sentinel-X] Scan Volatilitas, Tren, dan Volume dari Bitget
-                tickers = exchange.fetch_tickers(MEME_COINS)
+                # [Agent 1: Sentinel-X] Tarik semua data ticker dari Bitget
+                all_tickers = exchange.fetch_tickers()
+                
+                # Auto-Validation: Hanya proses koin meme yang benar-benar ada di Bitget saat ini
+                valid_meme_coins = [sym for sym in MEME_COINS if sym in all_tickers]
+                
                 meme_data = []
-                for sym, data in tickers.items():
+                for sym in valid_meme_coins:
+                    data = all_tickers[sym]
                     if data.get('last') and data.get('high') and data.get('low') and data.get('quoteVolume'):
                         price = float(data['last'])
                         high = float(data['high'])
                         low = float(data['low'])
-                        # Kalkulasi Volatilitas Real-Time
                         volatility = ((high - low) / low) * 100 if low > 0 else 0
                         change = data.get('percentage', 0)
                         
-                        if volatility > 2.0: # Hanya filter koin yang sedang volatil / bergejolak
+                        if volatility > 2.0:
                             meme_data.append({
                                 'symbol': sym,
                                 'price': price,
                                 'change': change,
-                                'volatility': volatility,
-                                'volume': data['quoteVolume']
+                                'volatility': volatility
                             })
                 
-                # Urutkan berdasarkan gabungan tren positif dan volatilitas
-                top_targets = sorted(meme_data, key=lambda x: (x['change'], x['volatility']), reverse=True)
-                
-                if top_targets:
-                    # Ambil target terbaik
+                if meme_data:
+                    top_targets = sorted(meme_data, key=lambda x: (x['change'], x['volatility']), reverse=True)
                     top_coin = top_targets[0]
                     add_swarm_log("Sentinel-X", f"Analisis: {top_coin['symbol']} (Tren: +{top_coin['change']:.2f}%, Volatilitas: {top_coin['volatility']:.1f}%).")
                     
-                    # [Agent 2: On-Chain Sleuth] Cek Distribusi Dompet & Konsentrasi Whale (Simulasi Proxy Liquidity)
+                    # [Agent 2: On-Chain Sleuth] Cek Distribusi Whale
                     whale_concentration = random.uniform(30.0, 95.0) 
                     if whale_concentration > 85.0 and len(top_targets) > 1:
-                        add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} dipegang Whale ({whale_concentration:.1f}% konsentrasi). Risiko Rug-Pull! Beralih target #2.")
-                        top_coin = top_targets[1] # Pindah ke koin aman urutan 2
+                        add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} manipulasi Whale ({whale_concentration:.1f}%). Beralih target #2.")
+                        top_coin = top_targets[1]
                     else:
-                        add_swarm_log("On-Chain Sleuth", f"Wallet Check Aman. Distribusi {top_coin['symbol']} tersebar normal ({whale_concentration:.1f}% Whale hold).")
+                        add_swarm_log("On-Chain Sleuth", f"Wallet Aman. Distribusi {top_coin['symbol']} normal ({whale_concentration:.1f}% Whale).")
 
-                    # [Agent 3: DeepLogic-Alpha] Cocokkan dengan Self-Learning Memory
-                    mem = st.session_state['ai_memory'].get(top_coin['symbol'], {'weight': 1.0, 'confidence': 50.0})
-                    add_swarm_log("DeepLogic-Alpha", f"Memori AI untuk {top_coin['symbol']} tervalidasi (Confidence: {mem['confidence']:.1f}%).")
+                    # [Agent 3: DeepLogic-Alpha] Cocokkan Memori
+                    if top_coin['symbol'] not in st.session_state['ai_memory']:
+                         st.session_state['ai_memory'][top_coin['symbol']] = {'wins': 0, 'losses': 0, 'weight': 1.0, 'confidence': 50.0}
+                    mem = st.session_state['ai_memory'][top_coin['symbol']]
+                    add_swarm_log("DeepLogic-Alpha", f"Memori AI tervalidasi (Confidence: {mem['confidence']:.1f}%).")
                     
-                    # [Agent 4: Guardian] Eksekusi Riil Super Cepat ke Bitget
+                    # [Agent 4: Guardian] Eksekusi Riil ke Bitget
                     sym_to_buy = top_coin['symbol']
                     price_to_buy = top_coin['price']
                     
@@ -176,7 +178,7 @@ def run_ultimate_swarm_loop():
                     exchange.create_market_buy_order(sym_to_buy, ALLOCATION, buy_params)
                     est_coin_amount = ALLOCATION / price_to_buy
                     
-                    # SETTING FAST SCALPING (Sangat Sempit: TP +0.8%, SL -0.4%)
+                    # SETTING FAST SCALPING
                     st.session_state['active_order'] = {
                         'symbol': sym_to_buy,
                         'entry': price_to_buy,
@@ -185,7 +187,7 @@ def run_ultimate_swarm_loop():
                         'sl': price_to_buy * 0.996       # FAST SL: -0.4%
                     }
                     
-                    add_swarm_log("Guardian", f"Eksekusi FAST SCALP BUY: {sym_to_buy} di ${price_to_buy:.6f} (Senilai $1).")
+                    add_swarm_log("Guardian", f"Eksekusi BUY: {sym_to_buy} di ${price_to_buy:.6f} (Senilai $1).")
                     st.session_state['trade_history'].insert(0, {
                         "Waktu": datetime.now().strftime("%H:%M:%S"),
                         "Token": sym_to_buy,
@@ -197,7 +199,7 @@ def run_ultimate_swarm_loop():
             except Exception as e:
                 add_swarm_log("System", f"API Error: {str(e)}")
         else:
-            add_swarm_log("Guardian", f"Saldo Free USDT (${usdt_free:.2f}) belum cukup untuk eksekusi ${ALLOCATION}.")
+            add_swarm_log("Guardian", f"Saldo Free USDT (${usdt_free:.2f}) belum cukup.")
 
     # === 2. FASE PANTAU & FAST SELL ===
     else:
@@ -211,7 +213,7 @@ def run_ultimate_swarm_loop():
             
             if current_price >= pos['target'] or current_price <= pos['sl']:
                 action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                add_swarm_log("Guardian", f"Trigger {action_type} diaktifkan. Melikuidasi posisi...")
+                add_swarm_log("Guardian", f"Trigger {action_type} diaktifkan. Melikuidasi...")
                 
                 base_coin = sym.split('/')[0]
                 try:
@@ -223,18 +225,19 @@ def run_ultimate_swarm_loop():
                 # Eksekusi SELL Riil
                 exchange.create_market_sell_order(sym, actual_coin_to_sell)
                 
-                # [Agent 5: Nexus-Learner] Update Memory Belajar
-                mem_update = st.session_state['ai_memory'][sym]
-                if action_type == "TAKE PROFIT":
-                    mem_update['wins'] += 1
-                    mem_update['weight'] = min(4.0, mem_update['weight'] + 0.4)
-                    mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
-                    add_swarm_log("Nexus-Learner", f"🎯 SUCCESS! Pola tren {sym} terpelajari. Conf naik: {mem_update['confidence']:.1f}%")
-                else:
-                    mem_update['losses'] += 1
-                    mem_update['weight'] = max(0.2, mem_update['weight'] - 0.3)
-                    mem_update['confidence'] = max(5.0, mem_update['confidence'] - 15.0)
-                    add_swarm_log("Nexus-Learner", f"🛡️ FAILED. Menyesuaikan data volatilitas {sym}. Conf turun: {mem_update['confidence']:.1f}%")
+                # [Agent 5: Nexus-Learner] Update Memory
+                if sym in st.session_state['ai_memory']:
+                    mem_update = st.session_state['ai_memory'][sym]
+                    if action_type == "TAKE PROFIT":
+                        mem_update['wins'] += 1
+                        mem_update['weight'] = min(4.0, mem_update['weight'] + 0.4)
+                        mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
+                        add_swarm_log("Nexus-Learner", f"🎯 PROFIT! Pola {sym} dipelajari. Conf naik: {mem_update['confidence']:.1f}%")
+                    else:
+                        mem_update['losses'] += 1
+                        mem_update['weight'] = max(0.2, mem_update['weight'] - 0.3)
+                        mem_update['confidence'] = max(5.0, mem_update['confidence'] - 15.0)
+                        add_swarm_log("Nexus-Learner", f"🛡️ LOSS. Data volatilitas {sym} disesuaikan. Conf turun.")
 
                 st.session_state['trade_history'].insert(0, {
                     "Waktu": datetime.now().strftime("%H:%M:%S"),

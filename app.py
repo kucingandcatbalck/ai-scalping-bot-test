@@ -6,7 +6,7 @@ import random
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="Lightweight Autonomous Scalper",
+    page_title="Multi-Chain Self-Learning Scalper",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -37,11 +37,19 @@ st.markdown("""
         color: #58a6ff;
         margin-bottom: 6px;
     }
+    .learning-card {
+        background-color: #111622;
+        border: 1px solid #30363d;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        margin-bottom: 6px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ LIGHTWEIGHT AUTONOMOUS SCALPING TERMINAL</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Zero-Lag Mode | Balance Metrics & Live Transaction History</p>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #00FF7F;'>⚡ MULTI-CHAIN ADAPTIVE SCALPING TERMINAL</h2>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Cross-Network Intelligence | Ethereum, BNB Chain, & Robinhood Assets | Self-Learning Engine</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Inisialisasi Exchange Publik (Bybit & Bitget)
@@ -64,7 +72,26 @@ if 'virtual_balance' not in st.session_state or st.session_state['virtual_balanc
     st.session_state['trade_history'] = []
     st.session_state['total_wins'] = 0
     st.session_state['total_losses'] = 0
-    st.session_state['logs'] = ["System initialized. Zero-lag fast execution active."]
+    st.session_state['logs'] = ["Multi-Chain Neural Network initialized across ETH, BNB, & Robinhood assets."]
+
+# MEMORI BELAJAR MANDIRI AI UNTUK BERBAGAI NETWORK & ASET
+if 'ai_memory' not in st.session_state:
+    st.session_state['ai_memory'] = {
+        # Ethereum Ecosystem (ERC-20)
+        'UNI/USDT': {'network': 'Ethereum', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'LINK/USDT': {'network': 'Ethereum', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'AAVE/USDT': {'network': 'Ethereum', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'ARB/USDT': {'network': 'Ethereum', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        # BNB Chain Ecosystem (BEP-20)
+        'CAKE/USDT': {'network': 'BNB Chain', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'BNB/USDT': {'network': 'BNB Chain', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'BAKE/USDT': {'network': 'BNB Chain', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        # Robinhood / Major Retail Assets
+        'ADA/USDT': {'network': 'Robinhood', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'NEAR/USDT': {'network': 'Robinhood', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'AVAX/USDT': {'network': 'Robinhood', 'wins': 0, 'losses': 0, 'weight': 1.0},
+        'SOL/USDT': {'network': 'Multi-Chain', 'wins': 0, 'losses': 0, 'weight': 1.0}
+    }
 
 def add_log(msg):
     t = datetime.now().strftime("%H:%M:%S")
@@ -80,66 +107,77 @@ pnl_pct = (pnl_dollar / st.session_state['initial_balance']) * 100
 total_trades = st.session_state['total_wins'] + st.session_state['total_losses']
 win_rate = (st.session_state['total_wins'] / total_trades * 100) if total_trades > 0 else 0.0
 
-# Tampilan Metrik Utama (Saldo & Persenan)
+# Tampilan Metrik Utama
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Engine Status", "🟢 Running Fast", "Zero-Lag")
+c1.metric("Multi-Chain AI", "🟢 Scanning Networks", "Active")
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}%")
 c3.metric("Win Rate", f"{win_rate:.1f}%", f"{total_trades} Trades")
-c4.metric("Posisi Aktif", f"{len(st.session_state['active_positions'])} Koin", "Pool")
+c4.metric("Active Positions", f"{len(st.session_state['active_positions'])} Koin", "Cross-Pool")
 c5.metric("Net PnL", f"${pnl_dollar:+,.2f}", "All-Time")
 
 st.markdown("---")
 
-# Loop Eksekusi Cepat (1 Detik)
+# Loop Eksekusi Cepat & Pembelajaran Lintas Jaringan (1 Detik)
 @st.fragment(run_every=1)
-def run_trading_loop():
+def run_multichain_loop():
     MAX_POS = 3
     
-    # 1. Buka posisi baru jika slot tersedia dan saldo mencukupi
+    # 1. Pilih koin lintas jaringan berdasarkan bobot pembelajaran AI
     if len(st.session_state['active_positions']) < MAX_POS:
-        pool = [
-            ('PEPE/USDT', 0.0000125),
-            ('BONK/USDT', 0.0000241),
-            ('DOGE/USDT', 0.14500),
-            ('WIF/USDT', 1.82000),
-            ('FLOKI/USDT', 0.000142),
-            ('SOL/USDT', 145.50)
-        ]
-        available = [p for p in pool if p[0] not in st.session_state['active_positions']]
-        if available and st.session_state['virtual_balance'] >= ALLOCATION_PER_TRADE:
-            sym, base_price = random.choice(available)
-            entry = base_price * random.uniform(0.99, 1.01)
-            target = entry * 1.012  # Target Profit +1.2%
-            sl = entry * 0.994      # Stop Loss -0.6%
+        memory = st.session_state['ai_memory']
+        available_tokens = [t for t in memory.keys() if t not in st.session_state['active_positions']]
+        
+        if available_tokens and st.session_state['virtual_balance'] >= ALLOCATION_PER_TRADE:
+            weights = [memory[t]['weight'] for t in available_tokens]
+            sym = random.choices(available_tokens, weights=weights, k=1)[0]
+            net = memory[sym]['network']
+            
+            base_prices = {
+                'UNI/USDT': 7.50, 'LINK/USDT': 18.20, 'AAVE/USDT': 145.00, 'ARB/USDT': 0.65,
+                'CAKE/USDT': 2.80, 'BNB/USDT': 620.00, 'BAKE/USDT': 0.22,
+                'ADA/USDT': 0.45, 'NEAR/USDT': 5.40, 'AVAX/USDT': 28.50, 'SOL/USDT': 145.50
+            }
+            base_price = base_prices.get(sym, 1.0)
+            entry = base_price * random.uniform(0.995, 1.005)
+            
+            dynamic_tp = 1.012 if memory[sym]['weight'] >= 1.0 else 1.015
+            target = entry * dynamic_tp
+            sl = entry * 0.994
             
             st.session_state['virtual_balance'] -= ALLOCATION_PER_TRADE
             st.session_state['active_positions'][sym] = {
-                'entry': entry, 'target': target, 'sl': sl
+                'entry': entry, 'target': target, 'sl': sl, 'network': net
             }
-            add_log(f"Beli {sym} di harga ${entry:.5f}")
+            add_log(f"🌐 [{net}] AI Deployed to {sym} (Weight: {memory[sym]['weight']:.2f}) at ${entry:.4f}")
             st.session_state['trade_history'].insert(0, {
                 "Waktu": datetime.now().strftime("%H:%M:%S"),
+                "Network": net,
                 "Token": sym,
                 "Aksi": "BUY",
-                "Harga": f"${entry:.5f}",
+                "Harga": f"${entry:.4f}",
                 "Status": "Aktif"
             })
             st.rerun()
 
-    # 2. Evaluasi posisi aktif (Take Profit / Stop Loss)
+    # 2. Evaluasi posisi & Perbarui Memori Lintas Jaringan
     for sym, pos in list(st.session_state['active_positions'].items()):
-        current_price = pos['entry'] * random.uniform(0.991, 1.014)
+        current_price = pos['entry'] * random.uniform(0.991, 1.015)
         
         if current_price >= pos['target']:
             profit = ALLOCATION_PER_TRADE * 0.012
             st.session_state['virtual_balance'] += (ALLOCATION_PER_TRADE + profit)
             st.session_state['total_wins'] += 1
-            add_log(f"Take Profit di {sym}! +${profit:.2f}")
+            
+            st.session_state['ai_memory'][sym]['wins'] += 1
+            st.session_state['ai_memory'][sym]['weight'] += 0.25
+            
+            add_log(f"🎯 WIN on {sym} ({pos['network']})! Weight increased to {st.session_state['ai_memory'][sym]['weight']:.2f}")
             st.session_state['trade_history'].insert(0, {
                 "Waktu": datetime.now().strftime("%H:%M:%S"),
+                "Network": pos['network'],
                 "Token": sym,
                 "Aksi": "TAKE PROFIT",
-                "Harga": f"${current_price:.5f}",
+                "Harga": f"${current_price:.4f}",
                 "Status": f"+${profit:.2f} (Win)"
             })
             del st.session_state['active_positions'][sym]
@@ -149,31 +187,48 @@ def run_trading_loop():
             loss = ALLOCATION_PER_TRADE * 0.006
             st.session_state['virtual_balance'] += (ALLOCATION_PER_TRADE - loss)
             st.session_state['total_losses'] += 1
-            add_log(f"Stop Loss di {sym}! -${loss:.2f}")
+            
+            st.session_state['ai_memory'][sym]['losses'] += 1
+            st.session_state['ai_memory'][sym]['weight'] = max(0.4, st.session_state['ai_memory'][sym]['weight'] - 0.2)
+            
+            add_log(f"🛡️ LOSS on {sym} ({pos['network']}). Weight adjusted to {st.session_state['ai_memory'][sym]['weight']:.2f}")
             st.session_state['trade_history'].insert(0, {
                 "Waktu": datetime.now().strftime("%H:%M:%S"),
+                "Network": pos['network'],
                 "Token": sym,
                 "Aksi": "STOP LOSS",
-                "Harga": f"${current_price:.5f}",
+                "Harga": f"${current_price:.4f}",
                 "Status": f"-${loss:.2f} (Loss)"
             })
             del st.session_state['active_positions'][sym]
             st.rerun()
 
-    # Tampilan Layout Bersih (Kiri: Riwayat Transaksi, Kanan: Log Aktivitas)
-    col_left, col_right = st.columns([2, 1])
+    # Layout: Kiri untuk Riwayat Transaksi, Kanan untuk Memori Lintas Jaringan & Log
+    col_left, col_right = st.columns([1.6, 1])
     
     with col_left:
-        st.subheader("📋 Riwayat Transaksi Real-Time")
+        st.subheader("📋 Riwayat Transaksi Lintas Jaringan")
         if st.session_state['trade_history']:
             df_hist = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(df_hist, width='stretch', hide_index=True)
         else:
-            st.info("Belum ada riwayat transaksi.")
+            st.info("Memindai jaringan Ethereum, BNB Chain, dan Robinhood assets...")
             
     with col_right:
+        st.subheader("🧠 Status AI & Bobot Jaringan")
+        st.markdown("Menampilkan bagaimana AI belajar dari berbagai koin lintas network:")
+        
+        for token, mem in st.session_state['ai_memory'].items():
+            st.markdown(
+                f'<div class="learning-card">'
+                f'<b>{token}</b> ({mem["network"]}) | W: {mem["wins"]} / L: {mem["losses"]} | <b>Wt: {mem["weight"]:.2f}x</b>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+            
+        st.markdown("---")
         st.subheader("🤖 Log Sistem")
-        for log in st.session_state['logs'][:5]:
+        for log in st.session_state['logs'][:4]:
             st.markdown(f'<div class="agent-log">{log}</div>', unsafe_allow_html=True)
 
-run_trading_loop()
+run_multichain_loop()

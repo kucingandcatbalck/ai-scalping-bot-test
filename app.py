@@ -6,7 +6,7 @@ import random
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="Universal Bitget Market Scalper ($1 Trade)",
+    page_title="Smart Recovery Bitget Scalper",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -50,11 +50,15 @@ st.markdown("""
         color: #00FF7F;
         font-weight: bold;
     }
+    .shield-badge {
+        color: #ff4500;
+        font-weight: bold;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ UNIVERSAL BITGET MARKET SCALPER</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Scanning <b>All Available Coins (/USDT)</b> on Bitget | <b>$1 Per Transaction</b> | Recovery Protocol</p>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #00FF7F;'>⚡ SMART RECOVERY & MULTI-COIN SCALPER</h2>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Bitget Spot Market | <b>Advanced Recovery Protocol</b> | $1 / Trade | Fast 1-Min Scalp</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Inisialisasi Exchange Bitget Live
@@ -83,10 +87,10 @@ except Exception as e:
 # State Management & AI Memory Initialization
 if 'trade_history' not in st.session_state:
     st.session_state['trade_history'] = []
-if 'active_order' not in st.session_state:
-    st.session_state['active_order'] = None
+if 'active_positions' not in st.session_state:
+    st.session_state['active_positions'] = {}
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["Universal Swarm AI aktif. Memindai seluruh koin Spot di Bitget..."]
+    st.session_state['swarm_logs'] = ["Recovery Swarm AI aktif. Mengawasi manajemen risiko dan pemulihan saldo..."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = {}
 if 'consecutive_losses' not in st.session_state:
@@ -103,36 +107,49 @@ def add_swarm_log(agent_name, msg):
 if total_eq <= 0.0:
     st.warning("⚠️ Perhatian: Saldo USDT di dompet Spot Bitget terdeteksi 0.")
 
-is_recovery = st.session_state['consecutive_losses'] > 0
-mode_label = "🛡️ RECOVERY MODE" if is_recovery else "⚡ UNIVERSAL AGGRESSIVE"
+# Tentukan status pemulihan
+losses_count = st.session_state['consecutive_losses']
+if losses_count >= 2:
+    mode_status = "🛡️ DEEP RECOVERY SHIELD"
+    max_allowed_positions = 2  # Kurangi posisi paralel saat loss beruntun untuk proteksi modal
+    min_volume_filter = 100000 # Cari koin berlikuiditas sangat tinggi
+elif losses_count == 1:
+    mode_status = "⚠️ CAUTION RECOVERY"
+    max_allowed_positions = 3
+    min_volume_filter = 50000
+else:
+    mode_status = "⚡ NORMAL AGGRESSIVE"
+    max_allowed_positions = 4
+    min_volume_filter = 20000
+
+active_count = len(st.session_state['active_positions'])
 
 # Metrik Atas
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Bot Status", mode_label, "$1 Allocation")
+c1.metric("Bot Status", mode_status, f"Loss Streak: {losses_count}")
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"Free: ${usdt_free:,.2f}")
-c3.metric("Scanner Scope", "🌍 All Bitget Spot", "Universal /USDT")
-c4.metric("Posisi Aktif", "1 Koin" if st.session_state['active_order'] else "0 Koin", "Max 1")
-c5.metric("Target Scalp", "+0.8% TP", "1 Min Speed")
+c3.metric("Max Positions", f"{active_count} / {max_allowed_positions}", "Dynamic Limit")
+c4.metric("Target Scalp", "+0.8% TP", "1 Min Speed")
+c5.metric("Allocation", "$1.0", "Per Trade")
 
 st.markdown("---")
 
-# LOOP LIVE TRADING (3 Detik Super Cepat)
+# LOOP LIVE TRADING DENGAN PROTOCOL RECOVERY
 @st.fragment(run_every=3)
-def run_universal_market_loop():
+def run_smart_recovery_loop():
     ALLOCATION = 1.0  # Alokasi $1 per transaksi
     
-    # === 1. FASE SCANNING SELURUH PASAR & BUY ===
-    if not st.session_state['active_order']:
-        if usdt_free >= ALLOCATION:
-            try:
-                # [Agent 1: Sentinel-X] Tarik seluruh ticker dari bursa Bitget tanpa batasan kategori
-                all_tickers = exchange.fetch_tickers()
-                
-                # Ambil SEMUA koin yang berpasangan dengan /USDT di Bitget
-                all_usdt_coins = [sym for sym in all_tickers.keys() if sym.endswith('/USDT')]
-                
-                market_data = []
-                for sym in all_usdt_coins:
+    try:
+        all_tickers = exchange.fetch_tickers()
+        all_usdt_coins = [sym for sym in all_tickers.keys() if sym.endswith('/USDT')]
+        
+        # === 1. FASE BUKA POSISI BARU DENGAN FILTER RECOVERY ===
+        if active_count < max_allowed_positions and usdt_free >= ALLOCATION:
+            existing_syms = list(st.session_state['active_positions'].keys())
+            
+            market_data = []
+            for sym in all_usdt_coins:
+                if sym not in existing_syms:
                     data = all_tickers[sym]
                     if data.get('last') and data.get('high') and data.get('low') and data.get('quoteVolume'):
                         price = float(data['last'])
@@ -142,8 +159,8 @@ def run_universal_market_loop():
                         change = data.get('percentage', 0)
                         volume = float(data['quoteVolume'])
                         
-                        # Filter koin dengan volatilitas aktif dan volume harian memadai (> $15,000)
-                        if volatility > 1.2 and volume > 15000:
+                        # Filter volume menyesuaikan tingkat recovery shield
+                        if volatility > 1.0 and volume > min_volume_filter:
                             market_data.append({
                                 'symbol': sym,
                                 'price': price,
@@ -151,144 +168,128 @@ def run_universal_market_loop():
                                 'volatility': volatility,
                                 'volume': volume
                             })
-                
-                if market_data:
-                    # Urutkan berdasarkan tren positif dan volatilitas tertinggi di seluruh market
-                    top_targets = sorted(market_data, key=lambda x: (x['change'], x['volatility']), reverse=True)
-                    top_coin = top_targets[0]
-                    
-                    add_swarm_log("Sentinel-X", f"Diskan {len(all_usdt_coins)} koin Bitget. Top Pick: {top_coin['symbol']} (+{top_coin['change']:.2f}%).")
-                    
-                    # [Agent 2: On-Chain Sleuth] Periksa risiko Whale / Likuiditas
-                    whale_risk = random.uniform(15.0, 85.0)
-                    if whale_risk > 78.0 and len(top_targets) > 1:
-                        add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} terdeteksi risiko likuiditas ({whale_risk:.1f}%). Beralih ke target alternatif.")
-                        top_coin = top_targets[1]
-                    else:
-                        add_swarm_log("On-Chain Sleuth", f"Market Liquidity Check Aman untuk {top_coin['symbol']}.")
-
-                    # [Agent 3: DeepLogic-Alpha & Recovery Protocol]
-                    sym_to_buy = top_coin['symbol']
-                    if sym_to_buy not in st.session_state['ai_memory']:
-                        st.session_state['ai_memory'][sym_to_buy] = {'wins': 0, 'losses': 0, 'weight': 1.0, 'confidence': 50.0}
-                    
-                    mem = st.session_state['ai_memory'][sym_to_buy]
-                    
-                    # Jika dalam Mode Pemulihan, saring koin dengan confidence lebih tinggi
-                    if is_recovery and mem['confidence'] < 55.0 and len(top_targets) > 2:
-                        add_swarm_log("Recovery-Engine", f"Mode Pemulihan: {sym_to_buy} dilewati. Mencari aset universal berprobabilitas tinggi.")
-                        top_coin = top_targets[2]
-                        sym_to_buy = top_coin['symbol']
-                        if sym_to_buy not in st.session_state['ai_memory']:
-                            st.session_state['ai_memory'][sym_to_buy] = {'wins': 0, 'losses': 0, 'weight': 1.0, 'confidence': 50.0}
-                        mem = st.session_state['ai_memory'][sym_to_buy]
-
-                    price_to_buy = top_coin['price']
-                    
-                    # [Agent 4: Guardian] Eksekusi Riil Super Cepat ke Bitget
-                    buy_params = {'createMarketBuyOrderRequiresPrice': False}
-                    exchange.create_market_buy_order(sym_to_buy, ALLOCATION, buy_params)
-                    est_coin_amount = ALLOCATION / price_to_buy
-                    
-                    # SETTING FAST SCALPING (TP +0.8%, SL -0.4%)
-                    st.session_state['active_order'] = {
-                        'symbol': sym_to_buy,
-                        'entry': price_to_buy,
-                        'amount': est_coin_amount,
-                        'target': price_to_buy * 1.008,  # TP +0.8%
-                        'sl': price_to_buy * 0.996       # SL -0.4%
-                    }
-                    
-                    add_swarm_log("Guardian", f"⚡ Fast Scalp BUY: {sym_to_buy} di ${price_to_buy:.5f} ($1).")
-                    st.session_state['trade_history'].insert(0, {
-                        "Waktu": datetime.now().strftime("%H:%M:%S"),
-                        "Token": sym_to_buy,
-                        "Aksi": "FAST BUY ($1)",
-                        "Harga": f"${price_to_buy:.5f}",
-                        "Status": "Aktif"
-                    })
-                    st.rerun()
-            except Exception as e:
-                add_swarm_log("System", f"Universal Scanner Error: {str(e)}")
-        else:
-            add_swarm_log("Guardian", f"Saldo USDT Free (${usdt_free:.2f}) belum cukup.")
-
-    # === 2. FASE PANTAU 1 MENIT & FAST SELL ===
-    else:
-        pos = st.session_state['active_order']
-        sym = pos['symbol']
-        
-        try:
-            ticker = exchange.fetch_ticker(sym)
-            current_price = ticker['last']
-            pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             
-            if current_price >= pos['target'] or current_price <= pos['sl']:
-                action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                add_swarm_log("Guardian", f"Target {action_type} tercapai. Melikuidasi instan...")
+            if market_data:
+                # Urutkan berdasarkan performa dan volume teraman
+                top_targets = sorted(market_data, key=lambda x: (x['change'], x['volume']), reverse=True)
+                top_coin = top_targets[0]
                 
-                base_coin = sym.split('/')[0]
-                try:
-                    current_bal = exchange.fetch_balance()
-                    actual_coin_to_sell = current_bal['free'].get(base_coin, pos['amount'] * 0.999)
-                except:
-                    actual_coin_to_sell = pos['amount'] * 0.999 
-
-                # Eksekusi Jual Riil
-                exchange.create_market_sell_order(sym, actual_coin_to_sell)
+                sym_to_buy = top_coin['symbol']
+                price_to_buy = top_coin['price']
                 
-                # [Agent 5: Nexus-Learner & Recovery Handler]
-                mem_update = st.session_state['ai_memory'][sym]
-                if action_type == "TAKE PROFIT":
-                    mem_update['wins'] += 1
-                    mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
-                    if st.session_state['consecutive_losses'] > 0:
-                        st.session_state['consecutive_losses'] -= 1
-                    add_swarm_log("Nexus-Learner", f"🎯 PROFIT! Koin {sym} sukses. Conf naik ke {mem_update['confidence']:.1f}%")
+                if losses_count >= 2:
+                    add_swarm_log("Recovery-Commander", f"Shield Aktif: Memilih aset likuiditas tinggi -> {sym_to_buy} (Vol: ${top_coin['volume']:,.0f}).")
                 else:
-                    mem_update['losses'] += 1
-                    mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
-                    st.session_state['consecutive_losses'] += 1
-                    add_swarm_log("Nexus-Learner", f"🛡️ STOP-LOSS HIT. Protokol pemulihan diaktifkan (Loss ke-{st.session_state['consecutive_losses']}).")
-
+                    add_swarm_log("Sentinel-X", f"Membuka posisi pada {sym_to_buy} (+{top_coin['change']:.2f}%).")
+                
+                # Eksekusi Beli Riil ke Bitget
+                buy_params = {'createMarketBuyOrderRequiresPrice': False}
+                exchange.create_market_buy_order(sym_to_buy, ALLOCATION, buy_params)
+                est_coin_amount = ALLOCATION / price_to_buy
+                
+                # Simpan ke daftar posisi aktif (TP +0.8%, SL -0.4%)
+                st.session_state['active_positions'][sym_to_buy] = {
+                    'entry': price_to_buy,
+                    'amount': est_coin_amount,
+                    'target': price_to_buy * 1.008,
+                    'sl': price_to_buy * 0.996
+                }
+                
+                add_swarm_log("Guardian", f"⚡ BUY: {sym_to_buy} di ${price_to_buy:.5f} ($1).")
                 st.session_state['trade_history'].insert(0, {
                     "Waktu": datetime.now().strftime("%H:%M:%S"),
-                    "Token": sym,
-                    "Aksi": action_type,
-                    "Harga": f"${current_price:.5f}",
-                    "Status": f"{pnl_pct:+.2f}%"
+                    "Token": sym_to_buy,
+                    "Aksi": "BUY ($1)",
+                    "Harga": f"${price_to_buy:.5f}",
+                    "Status": "Aktif"
                 })
-                
-                st.session_state['active_order'] = None
                 st.rerun()
-        except Exception as e:
-            add_swarm_log("Guardian", f"Error pantau posisi: {str(e)}")
+
+        # === 2. FASE PANTAU & KELOLA KELUAR PASAR ===
+        if st.session_state['active_positions']:
+            for sym, pos in list(st.session_state['active_positions'].items()):
+                if sym in all_tickers and all_tickers[sym].get('last'):
+                    current_price = float(all_tickers[sym]['last'])
+                    pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
+                    
+                    if current_price >= pos['target'] or current_price <= pos['sl']:
+                        action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
+                        add_swarm_log("Guardian", f"{sym} memicu {action_type}. Menutup posisi...")
+                        
+                        base_coin = sym.split('/')[0]
+                        try:
+                            current_bal = exchange.fetch_balance()
+                            actual_coin_to_sell = current_bal['free'].get(base_coin, pos['amount'] * 0.999)
+                        except:
+                            actual_coin_to_sell = pos['amount'] * 0.999 
+
+                        # Eksekusi Jual Riil ke Bitget
+                        exchange.create_market_sell_order(sym, actual_coin_to_sell)
+                        
+                        # Update Memori & Logika Pemulihan Cerdas
+                        if sym not in st.session_state['ai_memory']:
+                            st.session_state['ai_memory'][sym] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
+                        mem_update = st.session_state['ai_memory'][sym]
+                        
+                        if action_type == "TAKE PROFIT":
+                            mem_update['wins'] += 1
+                            mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
+                            
+                            # KURANGI STREAK LOSS (PEMULIHAN BERHASIL)
+                            if st.session_state['consecutive_losses'] > 0:
+                                st.session_state['consecutive_losses'] -= 1
+                                add_swarm_log("Recovery-Commander", f"🎯 RECOVERY SUCCESS! Sisa loss streak berkurang menjadi {st.session_state['consecutive_losses']}.")
+                            else:
+                                add_swarm_log("Nexus-Learner", f"🎯 PROFIT {sym}! Conf naik ke {mem_update['confidence']:.1f}%")
+                        else:
+                            mem_update['losses'] += 1
+                            mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
+                            
+                            # TAMBAH STREAK LOSS (AKTIFKAN / PERKETAT SHIELD)
+                            st.session_state['consecutive_losses'] += 1
+                            add_swarm_log("Recovery-Commander", f"🛡️ LOSS TERDETEKSI. Peningkatan Recovery Shield (Streak Loss: {st.session_state['consecutive_losses']}).")
+
+                        st.session_state['trade_history'].insert(0, {
+                            "Waktu": datetime.now().strftime("%H:%M:%S"),
+                            "Token": sym,
+                            "Aksi": action_type,
+                            "Harga": f"${current_price:.5f}",
+                            "Status": f"{pnl_pct:+.2f}%"
+                        })
+                        
+                        del st.session_state['active_positions'][sym]
+                        st.rerun()
+
+    except Exception as e:
+        add_swarm_log("System", f"Recovery Loop Error: {str(e)}")
 
     # === LAYOUT TAMPILAN ===
     col_left, col_right = st.columns([1.5, 1])
     
     with col_left:
-        st.subheader("📋 Riwayat 1-Minute Fast Scalping")
+        st.subheader("📋 Riwayat Transaksi & Pemulihan")
         if st.session_state['trade_history']:
             df_hist = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(df_hist, width='stretch', hide_index=True)
         else:
-            st.info("Memindai seluruh pasar Bitget...")
+            st.info("Memindai pasar dengan protokol pengamanan modal aktif...")
             
     with col_right:
-        st.subheader("🤖 Swarm AI Pipeline & Recovery")
+        st.subheader("🤖 Recovery AI & Swarm Logs")
         for log_html in st.session_state['swarm_logs']:
             st.markdown(log_html, unsafe_allow_html=True)
             
         st.markdown("---")
-        st.subheader("🧠 Adaptive Intelligence Matrix")
-        sorted_memory = sorted(st.session_state['ai_memory'].items(), key=lambda x: x[1]['confidence'], reverse=True)
-        for token, mem in sorted_memory[:4]:
-            st.markdown(
-                f'<div class="learning-card">'
-                f'<b>{token}</b> | Conf: <b>{mem["confidence"]:.1f}%</b> | W/L: {mem["wins"]}/{mem["losses"]}'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+        st.subheader("🧠 Active Positions Pool")
+        if st.session_state['active_positions']:
+            for s, p in st.session_state['active_positions'].items():
+                st.markdown(
+                    f'<div class="learning-card">'
+                    f'<b>{s}</b> | Entry: ${p["entry"]:.5f} | TP: ${p["target"]:.5f}'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("Menunggu peluang entry berikutnya...")
 
-run_universal_market_loop()
+run_smart_recovery_loop()

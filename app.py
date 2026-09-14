@@ -3,10 +3,12 @@ import ccxt
 import pandas as pd
 from datetime import datetime
 import random
+import json
+import os
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="Controlled Cooperative Scalper",
+    page_title="Smart Milestone Compounding Scalper",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -53,6 +55,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# File Penyimpanan Memori AI Permanen
+MEMORY_FILE = "ai_memory_store.json"
+
+def load_ai_memory():
+    """Memuat memori AI dari file lokal jika ada"""
+    if os.path.exists(MEMORY_FILE):
+        try:
+            with open(MEMORY_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_ai_memory(memory_data):
+    """Menyimpan memori AI secara permanen ke file lokal"""
+    try:
+        with open(MEMORY_FILE, "w") as f:
+            json.dump(memory_data, f)
+    except Exception as e:
+        print(f"Gagal menyimpan memori: {e}")
+
 # Inisialisasi Exchange Bitget Live
 @st.cache_resource
 def init_bitget_live():
@@ -82,15 +105,17 @@ if 'trade_history' not in st.session_state:
 if 'active_positions' not in st.session_state:
     st.session_state['active_positions'] = {}
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["5-Sec Cooperative Swarm AI siap diinisialisasi."]
+    st.session_state['swarm_logs'] = ["5-Sec Cooperative Swarm AI online dengan Smart Milestone Compounding."]
 if 'ai_memory' not in st.session_state:
-    st.session_state['ai_memory'] = {}
+    st.session_state['ai_memory'] = load_ai_memory()
 if 'consecutive_losses' not in st.session_state:
     st.session_state['consecutive_losses'] = 0
+if 'consecutive_wins' not in st.session_state:
+    st.session_state['consecutive_wins'] = 0  # Pelacak rentetan profit untuk milestone
 if 'dynamic_allocation' not in st.session_state:
-    st.session_state['dynamic_allocation'] = 1.0  # Mulai dari $1.0 per trade
+    st.session_state['dynamic_allocation'] = 1.0  
 if 'bot_active' not in st.session_state:
-    st.session_state['bot_active'] = False  # Default berhenti saat pertama kali dibuka untuk keamanan
+    st.session_state['bot_active'] = False  
 
 def add_swarm_log(agent_name, msg):
     t = datetime.now().strftime("%H:%M:%S")
@@ -108,7 +133,7 @@ with st.sidebar:
     with col_b1:
         if st.button("🚀 START BOT", use_container_width=True):
             st.session_state['bot_active'] = True
-            add_swarm_log("System", "🚀 Bot dihidupkan oleh pengguna. Memulai siklus trading...")
+            add_swarm_log("System", "🚀 Bot dihidupkan. Memuat memori pembelajaran terbaik...")
             st.rerun()
             
     with col_b2:
@@ -116,7 +141,6 @@ with st.sidebar:
             st.session_state['bot_active'] = False
             add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi semua posisi aktif...")
             
-            # Likuidasi darurat
             if st.session_state['active_positions']:
                 for s, p in list(st.session_state['active_positions'].items()):
                     try:
@@ -137,12 +161,13 @@ with st.sidebar:
             st.rerun()
             
     st.markdown("---")
-    st.markdown("### 🧠 Compounding Status")
+    st.markdown("### 🧠 Milestone Status")
     st.metric("Alokasi per Trade", f"${st.session_state['dynamic_allocation']:.2f}")
+    st.metric("Win Streak", f"{st.session_state['consecutive_wins']} / 3 (Target)")
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ CONTROLLED 5-SEC COOPERATIVE SCALPER</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #00FF7F;'>⚡ SMART MILESTONE COMPOUNDING SCALPER</h2>", unsafe_allow_html=True)
 status_indicator = "🟢 AKTIF (RUNNING)" if st.session_state['bot_active'] else "🔴 BERHENTI (PAUSED)"
-st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Autonomous Micro-Compounding | 5 AI Agents</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Milestone Compounding | 5 AI Agents</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 losses_count = st.session_state['consecutive_losses']
@@ -157,12 +182,11 @@ else:
 
 active_count = len(st.session_state['active_positions'])
 
-# Metrik Atas
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Swarm Status", mode_status, f"Loss Streak: {losses_count}")
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"Free: ${usdt_free:,.2f}")
 c3.metric("Active Positions", f"{active_count} / {max_allowed_positions}", "Parallel Pool")
-c4.metric("Allocation Size", f"${st.session_state['dynamic_allocation']:.2f}", "Auto-Scale")
+c4.metric("Allocation Size", f"${st.session_state['dynamic_allocation']:.2f}", "Milestone-Scale")
 c5.metric("Target Scalp", "+0.8% TP", "5-Sec Cadence")
 
 st.markdown("---")
@@ -170,7 +194,6 @@ st.markdown("---")
 # LOOP LIVE TRADING UTAMA (CADENCE 5 DETIK)
 @st.fragment(run_every=5)
 def run_cooperative_swarm_loop():
-    # Jika bot dimatikan oleh pengguna, hentikan eksekusi loop
     if not st.session_state.get('bot_active', False):
         return
 
@@ -223,11 +246,11 @@ def run_cooperative_swarm_loop():
                 if sym_to_buy not in st.session_state['ai_memory']:
                     st.session_state['ai_memory'][sym_to_buy] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
                 mem = st.session_state['ai_memory'][sym_to_buy]
-                add_swarm_log("DeepLogic-Alpha", f"Confidence for {sym_to_buy}: {mem['confidence']:.1f}%.")
+                add_swarm_log("DeepLogic-Alpha", f"Saved Confidence for {sym_to_buy}: {mem['confidence']:.1f}%.")
 
                 price_to_buy = top_coin['price']
                 
-                # [Agent 4: Guardian-Risk] Eksekusi order dengan alokasi compounding dinamis
+                # [Agent 4: Guardian-Risk] Eksekusi order
                 buy_params = {'createMarketBuyOrderRequiresPrice': False}
                 exchange.create_market_buy_order(sym_to_buy, current_allocation, buy_params)
                 est_coin_amount = current_allocation / price_to_buy
@@ -269,7 +292,7 @@ def run_cooperative_swarm_loop():
 
                         exchange.create_market_sell_order(sym, actual_coin_to_sell)
                         
-                        # [Agent 5: Nexus-Learner & Micro-Compounding Engine]
+                        # [Agent 5: Nexus-Learner & Milestone Compounding Engine]
                         if sym not in st.session_state['ai_memory']:
                             st.session_state['ai_memory'][sym] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
                         mem_update = st.session_state['ai_memory'][sym]
@@ -280,15 +303,26 @@ def run_cooperative_swarm_loop():
                             if st.session_state['consecutive_losses'] > 0:
                                 st.session_state['consecutive_losses'] -= 1
                             
-                            st.session_state['dynamic_allocation'] = round(st.session_state['dynamic_allocation'] + 0.05, 2)
-                            add_swarm_log("Nexus-Learner", f"🎯 PROFIT {sym}! Compounding AI dinaikkan ke ${st.session_state['dynamic_allocation']:.2f}")
+                            # Melacak rentetan profit (Win Streak)
+                            st.session_state['consecutive_wins'] += 1
+                            add_swarm_log("Nexus-Learner", f"🎯 PROFIT {sym}! Win streak: {st.session_state['consecutive_wins']}/3 menuju milestone.")
+                            
+                            # HANYA NAIKKAN ALOKASI JIKA DAPAT KEUNTUNGAN KONSISTEN (3 WIN BERUNTUN)
+                            if st.session_state['consecutive_wins'] >= 3:
+                                st.session_state['dynamic_allocation'] = round(st.session_state['dynamic_allocation'] + 0.15, 2)
+                                st.session_state['consecutive_wins'] = 0 # Reset streak setelah milestone tercapai
+                                add_swarm_log("Nexus-Learner", f"🚀 MILESTONE PROFIT TERCAPAI! AI menaikkan alokasi compounding ke ${st.session_state['dynamic_allocation']:.2f}")
                         else:
                             mem_update['losses'] += 1
                             mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
                             st.session_state['consecutive_losses'] += 1
+                            st.session_state['consecutive_wins'] = 0 # Reset streak jika terkena loss
                             
-                            st.session_state['dynamic_allocation'] = max(1.0, round(st.session_state['dynamic_allocation'] - 0.02, 2))
-                            add_swarm_log("Nexus-Learner", f"🛡️ STOP-LOSS {sym}. Alokasi diamankan ke ${st.session_state['dynamic_allocation']:.2f}")
+                            st.session_state['dynamic_allocation'] = max(1.0, round(st.session_state['dynamic_allocation'] - 0.05, 2))
+                            add_swarm_log("Nexus-Learner", f"🛡️ STOP-LOSS {sym}. Streak reset, alokasi diamankan ke ${st.session_state['dynamic_allocation']:.2f}")
+
+                        # SIMPAN KE FILE JSON SECARA OTOMATIS
+                        save_ai_memory(st.session_state['ai_memory'])
 
                         st.session_state['trade_history'].insert(0, {
                             "Waktu": datetime.now().strftime("%H:%M:%S"),
@@ -316,21 +350,22 @@ def run_cooperative_swarm_loop():
             st.info("Klik tombol **START BOT** di sidebar untuk mulai trading...")
             
     with col_right:
-        st.subheader("🤖 AI Agents & Compounding Stream")
+        st.subheader("🤖 AI Agents & Persistent Memory Stream")
         for log_html in st.session_state['swarm_logs']:
             st.markdown(log_html, unsafe_allow_html=True)
             
         st.markdown("---")
-        st.subheader("🧠 Active Positions Pool")
-        if st.session_state['active_positions']:
-            for s, p in st.session_state['active_positions'].items():
+        st.subheader("🧠 Stored Memory Pool (AI Best Strategies)")
+        if st.session_state['ai_memory']:
+            sorted_mem = sorted(st.session_state['ai_memory'].items(), key=lambda x: x[1]['confidence'], reverse=True)
+            for s, m in sorted_mem[:4]:
                 st.markdown(
                     f'<div class="learning-card">'
-                    f'<b>{s}</b> | Entry: ${p["entry"]:.5f} | TP: ${p["target"]:.5f}'
+                    f'<b>{s}</b> | Conf: <b>{m["confidence"]:.1f}%</b> | W/L: {m["wins"]}/{m["losses"]}'
                     f'</div>',
                     unsafe_allow_html=True
                 )
         else:
-            st.info("Belum ada posisi paralel aktif.")
+            st.info("Belum ada strategi tersimpan. Bot akan mulai merekam setelah transaksi pertama.")
 
 run_cooperative_swarm_loop()

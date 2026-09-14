@@ -44,7 +44,7 @@ st.markdown("<h2 style='color: #00FF7F;'>⚡ BITGET LIVE REAL-TRADING TERMINAL (
 st.markdown("<p style='color: #8b949e;'>Connected to Bitget Spot Live API | Single Position Mode ($4.5 Allocation)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Inisialisasi Exchange Bitget Live menggunakan Streamlit Secrets
+# Inisialisasi Exchange Bitget Live (Diperbarui dengan opsi fix Market Buy)
 @st.cache_resource
 def init_bitget_live():
     return ccxt.bitget({
@@ -52,14 +52,16 @@ def init_bitget_live():
         'secret': st.secrets["BITGET_SECRET"],
         'password': st.secrets["BITGET_PASSWORD"],
         'enableRateLimit': True,
-        'options': {'defaultType': 'spot'}
+        'options': {
+            'defaultType': 'spot',
+            'createMarketBuyOrderRequiresPrice': False  # FIX: Izinkan pembelian menggunakan nominal USDT langsung
+        }
     })
 
 try:
     exchange = init_bitget_live()
     balance = exchange.fetch_balance()
     
-    # Menggunakan .get() yang aman agar tidak terjadi KeyError
     free_dict = balance.get('free', {})
     total_dict = balance.get('total', {})
     usdt_free = free_dict.get('USDT', 0.0)
@@ -75,7 +77,7 @@ if 'trade_history' not in st.session_state:
 if 'active_order' not in st.session_state:
     st.session_state['active_order'] = None
 if 'logs' not in st.session_state:
-    st.session_state['logs'] = ["Terhubung ke Akun Riil Bitget. Siap melakukan eksekusi live."]
+    st.session_state['logs'] = ["Terhubung ke Akun Riil Bitget. API siap eksekusi."]
 
 def add_log(msg):
     t = datetime.now().strftime("%H:%M:%S")
@@ -85,7 +87,7 @@ def add_log(msg):
 
 # Peringatan jika saldo Spot kosong
 if total_eq <= 0.0:
-    st.warning("⚠️ Perhatian: Saldo USDT di dompet **Spot** Bitget Anda terdeteksi **0**. Pastikan dana $5 Anda sudah dipindahkan (*Transfer*) ke akun **Spot**, bukan di dompet Futures atau Funding.")
+    st.warning("⚠️ Perhatian: Saldo USDT di dompet **Spot** Bitget terdeteksi 0. Pastikan dana $5 Anda ada di akun Spot.")
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Mode", "🔴 LIVE REAL", "Bitget Spot")
@@ -99,32 +101,36 @@ st.markdown("---")
 # Loop Live Trading (2 Detik)
 @st.fragment(run_every=2)
 def run_live_bitget_loop():
-    ALLOCATION = 4.5  
+    ALLOCATION = 4.5  # Nominal USDT yang dihabiskan
     
     if not st.session_state['active_order']:
-        if usdt_free >= 2.0:
+        if usdt_free >= ALLOCATION:
             target_symbols = ['XRP/USDT', 'DOGE/USDT', 'SOL/USDT', 'ADA/USDT']
             sym = random.choice(target_symbols)
             
             try:
                 ticker = exchange.fetch_ticker(sym)
                 price = ticker['last']
-                amount_to_buy = ALLOCATION / price
                 
-                add_log(f"Mengirim order BUY riil untuk {sym} senilai ~${ALLOCATION}...")
+                add_log(f"Mengirim order BUY riil {sym} senilai ${ALLOCATION} USDT...")
                 
-                # EKSEKUSI ORDER BUY RIIL KE BITGET
-                buy_order = exchange.create_market_buy_order(sym, amount_to_buy)
+                # EKSEKUSI ORDER BUY RIIL: Kita mengirimkan nilai USDT (ALLOCATION) langsung
+                buy_order = exchange.create_market_buy_order(sym, ALLOCATION)
+                
+                # Menghitung jumlah koin yang benar-benar didapat (Jika kosong dari API, gunakan estimasi)
+                actual_coin_amount = buy_order.get('filled')
+                if not actual_coin_amount or actual_coin_amount == 0:
+                    actual_coin_amount = ALLOCATION / price
                 
                 st.session_state['active_order'] = {
                     'symbol': sym,
                     'entry': price,
-                    'amount': amount_to_buy,
-                    'target': price * 1.012,  
-                    'sl': price * 0.994       
+                    'amount': actual_coin_amount,
+                    'target': price * 1.012,  # TP +1.2%
+                    'sl': price * 0.994       # SL -0.6%
                 }
                 
-                add_log(f"Berhasil Beli {sym} di harga ${price:.4f}!")
+                add_log(f"Berhasil Beli {sym} (Dapat {actual_coin_amount:.4f} koin) di harga ${price:.4f}!")
                 st.session_state['trade_history'].insert(0, {
                     "Waktu": datetime.now().strftime("%H:%M:%S"),
                     "Token": sym,
@@ -136,7 +142,7 @@ def run_live_bitget_loop():
             except Exception as e:
                 add_log(f"Error order buy: {str(e)}")
         else:
-            add_log("Saldo USDT bebas di dompet Spot kurang dari $2.0.")
+            add_log(f"Menunggu Saldo USDT Free minimal ${ALLOCATION} (Saat ini: ${usdt_free:.2f})")
 
     else:
         pos = st.session_state['active_order']
@@ -149,9 +155,9 @@ def run_live_bitget_loop():
             
             if current_price >= pos['target'] or current_price <= pos['sl']:
                 action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                add_log(f"Target tercapai ({action_type}). Mengirim order SELL riil ke Bitget...")
+                add_log(f"Target {action_type} tersentuh. Mengirim order SELL riil...")
                 
-                # EKSEKUSI ORDER SELL RIIL KE BITGET
+                # EKSEKUSI ORDER SELL RIIL: Kita mengirimkan jumlah KOIN (bukan USDT)
                 sell_order = exchange.create_market_sell_order(sym, pos['amount'])
                 
                 add_log(f"Posisi {sym} ditutup di ${current_price:.4f} (PnL: {pnl_pct:+.2f}%)")

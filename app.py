@@ -51,7 +51,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h2 style='color: #00FF7F;'>⚡ HIGH-CAPITAL CANDLESTICK MICRO-SCALPER</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Multi-Token Candlestick Grid | High Allocation ($1000/Trade) | Guaranteed Live Rendering</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Multi-Token Candlestick Grid | High Allocation ($1000/Trade) | Guaranteed Rendering</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # Inisialisasi Exchange Bybit & Bitget
@@ -91,7 +91,7 @@ def get_safe_candles(symbol, entry_price):
     except:
         pass
     
-    # Fallback Data Candlestick Real-Time (Menjamin chart tidak pernah kosong)
+    # Fallback Data Candlestick Real-Time
     now = datetime.now()
     base = entry_price if entry_price else 1.0
     data = []
@@ -105,31 +105,17 @@ def get_safe_candles(symbol, entry_price):
         base = c
     return pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
 
-# Inisialisasi Session State (Modal Tinggi: $10,000 Saldo Awal)
-if 'active_positions' not in st.session_state:
-    st.session_state['active_positions'] = {} 
-
-if 'trade_history' not in st.session_state:
-    st.session_state['trade_history'] = []
-
-if 'virtual_balance' not in st.session_state:
-    st.session_state['virtual_balance'] = 10000.0  # Sisa Cash
-
-if 'initial_balance' not in st.session_state:
+# Inisialisasi Session State & Paksa Reset Modal ke $10,000 jika masih rendah
+if 'virtual_balance' not in st.session_state or st.session_state['virtual_balance'] < 1000.0:
+    st.session_state['virtual_balance'] = 10000.0
     st.session_state['initial_balance'] = 10000.0
-
-if 'balance_history' not in st.session_state:
+    st.session_state['active_positions'] = {}
+    st.session_state['trade_history'] = []
     st.session_state['balance_history'] = [{'time': datetime.now().strftime("%H:%M:%S"), 'balance': 10000.0}]
-
-if 'total_wins' not in st.session_state:
-    st.session_state['total_wins'] = 0
-
-if 'total_losses' not in st.session_state:
-    st.session_state['total_losses'] = 0
 
 if 'ai_thoughts' not in st.session_state:
     st.session_state['ai_thoughts'] = [
-        ("System Core", "Candlestick guaranteed-render engine online. Ready to deploy $1,000 blocks.")
+        ("System Core", "High-cap candlestick engine synchronized. Capital locked at $10,000 baseline.")
     ]
 
 def record_thought(agent, thought):
@@ -144,7 +130,7 @@ total_equity = st.session_state['virtual_balance'] + locked_capital_total
 
 total_pnl_dollar = total_equity - st.session_state['initial_balance']
 total_pnl_persen = (total_pnl_dollar / st.session_state['initial_balance']) * 100
-total_trades = st.session_state['total_wins'] + st.session_state['total_losses']
+total_trades = st.session_state['total_wins'] + st.session_state['total_losses'] if 'total_wins' in st.session_state else 0
 win_rate = (st.session_state['total_wins'] / total_trades * 100) if total_trades > 0 else 0.0
 
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -238,7 +224,7 @@ def render_high_cap_terminal():
                     if st.session_state['virtual_balance'] >= ALLOCATION_PER_TRADE:
                         strat = agent_micro_strategist(target)
                         
-                        # Potong modal cash secara nyata saat posisi dibuka
+                        # Potong modal cash
                         st.session_state['virtual_balance'] -= ALLOCATION_PER_TRADE
                         st.session_state['active_positions'][sym] = strat
                         
@@ -270,7 +256,7 @@ def render_high_cap_terminal():
             if last_price >= posisi['target']:
                 cuan = ALLOCATION_PER_TRADE * (posisi['tp_pct'] / 100)
                 st.session_state['virtual_balance'] += (ALLOCATION_PER_TRADE + cuan)
-                st.session_state['total_wins'] += 1
+                st.session_state['total_wins'] = st.session_state.get('total_wins', 0) + 1
                 
                 record_thought("Agent-Guardian", f"🎯 Take Profit hit on {sym}! Profit secured +${cuan:,.2f}")
                 
@@ -288,7 +274,7 @@ def render_high_cap_terminal():
             elif last_price <= posisi['sl']:
                 rugi = ALLOCATION_PER_TRADE * (posisi['sl_pct'] / 100)
                 st.session_state['virtual_balance'] += (ALLOCATION_PER_TRADE - rugi)
-                st.session_state['total_losses'] += 1
+                st.session_state['total_losses'] = st.session_state.get('total_losses', 0) + 1
                 
                 record_thought("Agent-Guardian", f"🛡️ Stop-Loss cut on {sym}! Loss limited to -${rugi:,.2f}")
                 
@@ -302,7 +288,7 @@ def render_high_cap_terminal():
                 del st.session_state['active_positions'][sym]
                 st.rerun()
 
-    # Hitung total ekuitas terkini untuk grafik
+    # Hitung total ekuitas terkini
     current_locked_capital = sum(1000.0 for _ in st.session_state['active_positions'])
     current_total_equity = st.session_state['virtual_balance'] + current_locked_capital + floating_pnl_total
     current_time_str = datetime.now().strftime("%H:%M:%S")
@@ -337,7 +323,7 @@ def render_high_cap_terminal():
                                 c_pnl_pct = ((l_price - posisi['entry']) / posisi['entry']) * 100
                                 c_pnl_dol = ALLOCATION_PER_TRADE * (c_pnl_pct / 100)
                                 
-                                # Render Candlestick Chart dengan use_container_width=True
+                                # Render Candlestick Chart menggunakan width='stretch' yang kompatibel
                                 fig = go.Figure(data=[go.Candlestick(
                                     x=c_df['timestamp'],
                                     open=c_df['open'],
@@ -360,7 +346,7 @@ def render_high_cap_terminal():
                                     xaxis=dict(showgrid=False),
                                     yaxis=dict(showgrid=True, gridcolor='#21262d')
                                 )
-                                st.plotly_chart(fig, use_container_width=True, key=f"candle_{sym.replace('/', '_')}")
+                                st.plotly_chart(fig, width='stretch', key=f"candle_{sym.replace('/', '_')}")
                                 
                                 color_style = "color: #00FF7F;" if c_pnl_dol >= 0 else "color: #FF4500;"
                                 st.markdown(f"""
@@ -387,7 +373,7 @@ def render_high_cap_terminal():
         
         if st.session_state['trade_history']:
             history_df = pd.DataFrame(st.session_state['trade_history'])
-            st.dataframe(history_df, use_container_width=True, hide_index=True)
+            st.dataframe(history_df, width='stretch', hide_index=True)
         else:
             st.info("Waiting for high-cap scalps...")
             
@@ -414,6 +400,6 @@ def render_high_cap_terminal():
             xaxis=dict(showgrid=False),
             yaxis=dict(showgrid=True, gridcolor='#21262d')
         )
-        st.plotly_chart(eq_fig, use_container_width=True, key="equity_curve_small")
+        st.plotly_chart(eq_fig, width='stretch', key="equity_curve_small")
 
 render_high_cap_terminal()

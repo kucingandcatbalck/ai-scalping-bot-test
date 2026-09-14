@@ -6,9 +6,9 @@ import random
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="5-Sec Multi-Agent Cooperative Scalper",
+    page_title="Controlled Cooperative Scalper",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Custom CSS Tampilan Terminal AI Swarm
@@ -53,10 +53,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ 5-SEC MULTI-AGENT COOPERATIVE SCALPER</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Bitget Spot Market | <b>5-Second Execution Cycle</b> | 5 Cooperating AI Agents | $1 / Trade</p>", unsafe_allow_html=True)
-st.markdown("---")
-
 # Inisialisasi Exchange Bitget Live
 @st.cache_resource
 def init_bitget_live():
@@ -86,11 +82,15 @@ if 'trade_history' not in st.session_state:
 if 'active_positions' not in st.session_state:
     st.session_state['active_positions'] = {}
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["5-Sec Cooperative Swarm AI online. 5 Agents ready for collaboration..."]
+    st.session_state['swarm_logs'] = ["5-Sec Cooperative Swarm AI siap diinisialisasi."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = {}
 if 'consecutive_losses' not in st.session_state:
     st.session_state['consecutive_losses'] = 0
+if 'dynamic_allocation' not in st.session_state:
+    st.session_state['dynamic_allocation'] = 1.0  # Mulai dari $1.0 per trade
+if 'bot_active' not in st.session_state:
+    st.session_state['bot_active'] = False  # Default berhenti saat pertama kali dibuka untuk keamanan
 
 def add_swarm_log(agent_name, msg):
     t = datetime.now().strftime("%H:%M:%S")
@@ -99,7 +99,52 @@ def add_swarm_log(agent_name, msg):
     if len(st.session_state['swarm_logs']) > 8:
         st.session_state['swarm_logs'].pop()
 
-# Status Pemulihan & Manajemen Risiko
+# --- SIDEBAR: KONTROL START / STOP & EMERGENCY ---
+with st.sidebar:
+    st.markdown("<h3 style='color: #00FF7F;'>🎛️ BOT POWER CONTROL</h3>", unsafe_allow_html=True)
+    st.markdown("Gunakan tombol di bawah untuk menyalakan atau menghentikan bot secara manual.")
+    
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        if st.button("🚀 START BOT", use_container_width=True):
+            st.session_state['bot_active'] = True
+            add_swarm_log("System", "🚀 Bot dihidupkan oleh pengguna. Memulai siklus trading...")
+            st.rerun()
+            
+    with col_b2:
+        if st.button("🛑 STOP / EXIT", use_container_width=True):
+            st.session_state['bot_active'] = False
+            add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi semua posisi aktif...")
+            
+            # Likuidasi darurat
+            if st.session_state['active_positions']:
+                for s, p in list(st.session_state['active_positions'].items()):
+                    try:
+                        base_coin = s.split('/')[0]
+                        current_bal = exchange.fetch_balance()
+                        sell_amt = current_bal['free'].get(base_coin, p['amount'])
+                        exchange.create_market_sell_order(s, sell_amt)
+                        st.session_state['trade_history'].insert(0, {
+                            "Waktu": datetime.now().strftime("%H:%M:%S"),
+                            "Token": s,
+                            "Aksi": "EMERGENCY SELL",
+                            "Harga": "Market",
+                            "Status": "Stopped By User"
+                        })
+                    except Exception as ex:
+                        add_swarm_log("System", f"Gagal jual {s}: {str(ex)}")
+                st.session_state['active_positions'] = {}
+            st.rerun()
+            
+    st.markdown("---")
+    st.markdown("### 🧠 Compounding Status")
+    st.metric("Alokasi per Trade", f"${st.session_state['dynamic_allocation']:.2f}")
+
+st.markdown("<h2 style='color: #00FF7F;'>⚡ CONTROLLED 5-SEC COOPERATIVE SCALPER</h2>", unsafe_allow_html=True)
+status_indicator = "🟢 AKTIF (RUNNING)" if st.session_state['bot_active'] else "🔴 BERHENTI (PAUSED)"
+st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Autonomous Micro-Compounding | 5 AI Agents</p>", unsafe_allow_html=True)
+st.markdown("---")
+
 losses_count = st.session_state['consecutive_losses']
 if losses_count >= 2:
     mode_status = "🛡️ DEEP RECOVERY SHIELD"
@@ -116,26 +161,29 @@ active_count = len(st.session_state['active_positions'])
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Swarm Status", mode_status, f"Loss Streak: {losses_count}")
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"Free: ${usdt_free:,.2f}")
-c3.metric("Active Positions", f"{active_count} / {max_allowed_positions}", "Max 4 Parallel")
-c4.metric("Cadence Cycle", "5 Seconds", "Ultra-Fast")
-c5.metric("Allocation", "$1.0", "Per Trade")
+c3.metric("Active Positions", f"{active_count} / {max_allowed_positions}", "Parallel Pool")
+c4.metric("Allocation Size", f"${st.session_state['dynamic_allocation']:.2f}", "Auto-Scale")
+c5.metric("Target Scalp", "+0.8% TP", "5-Sec Cadence")
 
 st.markdown("---")
 
-# LOOP LIVE TRADING UTAMA (CADENCE 5 DETIK DENGAN 5 AGEN AI)
+# LOOP LIVE TRADING UTAMA (CADENCE 5 DETIK)
 @st.fragment(run_every=5)
 def run_cooperative_swarm_loop():
-    ALLOCATION = 1.0  # Alokasi $1 per transaksi
+    # Jika bot dimatikan oleh pengguna, hentikan eksekusi loop
+    if not st.session_state.get('bot_active', False):
+        return
+
+    current_allocation = st.session_state['dynamic_allocation']
     
     try:
         all_tickers = exchange.fetch_tickers()
         all_usdt_coins = [sym for sym in all_tickers.keys() if sym.endswith('/USDT')]
         
-        # === 1. FASE KOLABORASI PENCARIAN & ENTRY (5 DETIK) ===
-        if active_count < max_allowed_positions and usdt_free >= ALLOCATION:
+        # === 1. FASE KOLABORASI PENCARIAN & ENTRY ===
+        if active_count < max_allowed_positions and usdt_free >= current_allocation:
             existing_syms = list(st.session_state['active_positions'].keys())
             
-            # [Agent 1: Sentinel-X] Memindai pasar secara paralel
             market_data = []
             for sym in all_usdt_coins:
                 if sym not in existing_syms:
@@ -160,29 +208,29 @@ def run_cooperative_swarm_loop():
             if market_data:
                 top_targets = sorted(market_data, key=lambda x: (x['change'], x['volatility']), reverse=True)
                 top_coin = top_targets[0]
-                add_swarm_log("Sentinel-X", f"Scanned market. Top momentum candidate: {top_coin['symbol']} (+{top_coin['change']:.2f}%).")
+                add_swarm_log("Sentinel-X", f"Scanned market. Top candidate: {top_coin['symbol']} (+{top_coin['change']:.2f}%).")
                 
                 # [Agent 2: On-Chain Sleuth] Verifikasi dompet & likuiditas
                 whale_risk = random.uniform(10.0, 75.0)
                 if whale_risk > 70.0 and len(top_targets) > 1:
-                    add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} terdeteksi konsentrasi Whale. Mengalihkan ke kandidat aman.")
+                    add_swarm_log("On-Chain Sleuth", f"⚠️ VETO! {top_coin['symbol']} terdeteksi konsentrasi Whale. Mengalihkan.")
                     top_coin = top_targets[1]
                 else:
                     add_swarm_log("On-Chain Sleuth", f"Wallet & Liquidity check passed for {top_coin['symbol']}.")
 
-                # [Agent 3: DeepLogic-Alpha] Analisis probabilitas & memori
+                # [Agent 3: DeepLogic-Alpha] Analisis probabilitas
                 sym_to_buy = top_coin['symbol']
                 if sym_to_buy not in st.session_state['ai_memory']:
                     st.session_state['ai_memory'][sym_to_buy] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
                 mem = st.session_state['ai_memory'][sym_to_buy]
-                add_swarm_log("DeepLogic-Alpha", f"Neural confidence for {sym_to_buy}: {mem['confidence']:.1f}%. Parameters locked.")
+                add_swarm_log("DeepLogic-Alpha", f"Confidence for {sym_to_buy}: {mem['confidence']:.1f}%.")
 
                 price_to_buy = top_coin['price']
                 
-                # [Agent 4: Guardian-Risk] Validasi akhir & Eksekusi order $1 ke Bitget
+                # [Agent 4: Guardian-Risk] Eksekusi order dengan alokasi compounding dinamis
                 buy_params = {'createMarketBuyOrderRequiresPrice': False}
-                exchange.create_market_buy_order(sym_to_buy, ALLOCATION, buy_params)
-                est_coin_amount = ALLOCATION / price_to_buy
+                exchange.create_market_buy_order(sym_to_buy, current_allocation, buy_params)
+                est_coin_amount = current_allocation / price_to_buy
                 
                 st.session_state['active_positions'][sym_to_buy] = {
                     'entry': price_to_buy,
@@ -191,17 +239,17 @@ def run_cooperative_swarm_loop():
                     'sl': price_to_buy * 0.996       # SL -0.4%
                 }
                 
-                add_swarm_log("Guardian-Risk", f"⚡ 5-Sec BUY Executed: {sym_to_buy} at ${price_to_buy:.5f} ($1).")
+                add_swarm_log("Guardian-Risk", f"⚡ BUY Executed: {sym_to_buy} at ${price_to_buy:.5f} (${current_allocation:.2f}).")
                 st.session_state['trade_history'].insert(0, {
                     "Waktu": datetime.now().strftime("%H:%M:%S"),
                     "Token": sym_to_buy,
-                    "Aksi": "BUY ($1)",
+                    "Aksi": f"BUY (${current_allocation:.2f})",
                     "Harga": f"${price_to_buy:.5f}",
                     "Status": "Aktif"
                 })
                 st.rerun()
 
-        # === 2. FASE PANTAU DAN KELUAR POSISI (5 DETIK) ===
+        # === 2. FASE PANTAU DAN KELUAR POSISI ===
         if st.session_state['active_positions']:
             for sym, pos in list(st.session_state['active_positions'].items()):
                 if sym in all_tickers and all_tickers[sym].get('last'):
@@ -210,7 +258,7 @@ def run_cooperative_swarm_loop():
                     
                     if current_price >= pos['target'] or current_price <= pos['sl']:
                         action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                        add_swarm_log("Guardian-Risk", f"{sym} triggered {action_type}. Closing position instantly...")
+                        add_swarm_log("Guardian-Risk", f"{sym} triggered {action_type}. Closing position...")
                         
                         base_coin = sym.split('/')[0]
                         try:
@@ -219,10 +267,9 @@ def run_cooperative_swarm_loop():
                         except:
                             actual_coin_to_sell = pos['amount'] * 0.999 
 
-                        # Eksekusi Jual Riil ke Bitget
                         exchange.create_market_sell_order(sym, actual_coin_to_sell)
                         
-                        # [Agent 5: Nexus-Learner] Umpan balik & pembelajaran mandiri
+                        # [Agent 5: Nexus-Learner & Micro-Compounding Engine]
                         if sym not in st.session_state['ai_memory']:
                             st.session_state['ai_memory'][sym] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
                         mem_update = st.session_state['ai_memory'][sym]
@@ -232,12 +279,16 @@ def run_cooperative_swarm_loop():
                             mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
                             if st.session_state['consecutive_losses'] > 0:
                                 st.session_state['consecutive_losses'] -= 1
-                            add_swarm_log("Nexus-Learner", f"🎯 PROFIT {sym}! Collaborative learning updated confidence to {mem_update['confidence']:.1f}%")
+                            
+                            st.session_state['dynamic_allocation'] = round(st.session_state['dynamic_allocation'] + 0.05, 2)
+                            add_swarm_log("Nexus-Learner", f"🎯 PROFIT {sym}! Compounding AI dinaikkan ke ${st.session_state['dynamic_allocation']:.2f}")
                         else:
                             mem_update['losses'] += 1
                             mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
                             st.session_state['consecutive_losses'] += 1
-                            add_swarm_log("Nexus-Learner", f"🛡️ STOP-LOSS {sym}. Swarm defensive recovery triggered.")
+                            
+                            st.session_state['dynamic_allocation'] = max(1.0, round(st.session_state['dynamic_allocation'] - 0.02, 2))
+                            add_swarm_log("Nexus-Learner", f"🛡️ STOP-LOSS {sym}. Alokasi diamankan ke ${st.session_state['dynamic_allocation']:.2f}")
 
                         st.session_state['trade_history'].insert(0, {
                             "Waktu": datetime.now().strftime("%H:%M:%S"),
@@ -251,7 +302,7 @@ def run_cooperative_swarm_loop():
                         st.rerun()
 
     except Exception as e:
-        add_swarm_log("System", f"Swarm Loop Error: {str(e)}")
+        add_swarm_log("System", f"Loop Error: {str(e)}")
 
     # === LAYOUT TAMPILAN ===
     col_left, col_right = st.columns([1.5, 1])
@@ -262,10 +313,10 @@ def run_cooperative_swarm_loop():
             df_hist = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(df_hist, width='stretch', hide_index=True)
         else:
-            st.info("5-Sec Swarm sedang memindai seluruh pasar Bitget...")
+            st.info("Klik tombol **START BOT** di sidebar untuk mulai trading...")
             
     with col_right:
-        st.subheader("🤖 5 Cooperating AI Agents Stream")
+        st.subheader("🤖 AI Agents & Compounding Stream")
         for log_html in st.session_state['swarm_logs']:
             st.markdown(log_html, unsafe_allow_html=True)
             
@@ -280,6 +331,6 @@ def run_cooperative_swarm_loop():
                     unsafe_allow_html=True
                 )
         else:
-            st.info("Menunggu sinergi agen berikutnya...")
+            st.info("Belum ada posisi paralel aktif.")
 
 run_cooperative_swarm_loop()

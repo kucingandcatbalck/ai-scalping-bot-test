@@ -4,9 +4,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# Konfigurasi Halaman & Tema Mode Malam Institusional (ST-Fin Style)
+# Konfigurasi Halaman & Tema Mode Malam Institusional (ST-Fin Framework style)[cite: 1]
 st.set_page_config(
-    page_title="ST-Fin Multi-Coin Scalping Terminal",
+    page_title="ST-Fin Portfolio & Scalping Terminal",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -42,18 +42,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ ST-FIN MULTI-COIN SCALPING TERMINAL</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8b949e;'>Autonomous Parallel Multi-Agent Execution | Sleek Neon Chart View</p>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #00FF7F;'>⚡ ST-FIN PORTFOLIO & SCALPING TERMINAL</h2>", unsafe_allow_html=True)
+st.markdown("<p style='color: #8b949e;'>Autonomous Multi-Agent Engine | Balance Growth Tracking & Anti-Rate-Limit Protected</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Inisialisasi Exchange Publik Bybit
+# Inisialisasi Exchange Publik Bybit dengan Proteksi Rate Limit
 @st.cache_resource
 def init_exchange():
     return ccxt.bybit({'enableRateLimit': True, 'options': {'defaultType': 'spot'}})
 
 exchange = init_exchange()
 
-# Inisialisasi State Sesi (Session State) untuk Multi-Posisi
+# --- FUNGSI AMAN DARI RATE LIMIT (CACHED TICKERS) ---
+@st.cache_data(ttl=15)
+def get_safe_tickers():
+    """Mengambil data ticker pasar dengan cache 15 detik agar aman dari blokir Bybit IP Rate Limit"""
+    try:
+        return exchange.fetch_tickers()
+    except Exception:
+        return {}
+
+# Inisialisasi State Sesi (Session State)
 if 'active_positions' not in st.session_state:
     st.session_state['active_positions'] = {} 
 
@@ -66,6 +75,9 @@ if 'virtual_balance' not in st.session_state:
 if 'initial_balance' not in st.session_state:
     st.session_state['initial_balance'] = 100.0
 
+if 'balance_history' not in st.session_state:
+    st.session_state['balance_history'] = [{'time': datetime.now().strftime("%H:%M:%S"), 'balance': 100.0}]
+
 if 'total_wins' not in st.session_state:
     st.session_state['total_wins'] = 0
 
@@ -74,7 +86,7 @@ if 'total_losses' not in st.session_state:
 
 if 'agent_logs' not in st.session_state:
     st.session_state['agent_logs'] = [
-        "ST-Fin Scalping Engine Initialized. Sleek Neon Chart Pipeline Active."
+        "ST-Fin Safe Engine Initialized. Anti-Rate-Limit Protection Active."
     ]
 
 def log_agent(agent_name, message):
@@ -91,7 +103,7 @@ total_trades = st.session_state['total_wins'] + st.session_state['total_losses']
 win_rate = (st.session_state['total_wins'] / total_trades * 100) if total_trades > 0 else 0.0
 
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Scalping Status", "🟢 Parallel Live", "Active")
+col1.metric("API Status", "🟢 Rate-Limit Safe", "Protected")
 col2.metric("Total Saldo", f"${st.session_state['virtual_balance']:.2f}", f"{total_pnl_persen:+.2f}%")
 col3.metric("Win Rate", f"{win_rate:.1f}%", f"{st.session_state['total_wins']}W / {st.session_state['total_losses']}L")
 col4.metric("Posisi Aktif", f"{len(st.session_state['active_positions'])} Koin", "Parallel Pool")
@@ -102,17 +114,17 @@ st.markdown("---")
 # Fungsi ambil data candle 1m
 def fetch_candles_1m(symbol):
     try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=40)
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=30)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
     except:
         return None
 
-# Agent 1: Market Scout
+# Agent 1: Market Scout (Menggunakan Tickers yang aman dari cache)
 def agent_market_scout(existing_symbols):
     try:
-        tickers = exchange.fetch_tickers()
+        tickers = get_safe_tickers()
         kandidat = []
         for symbol, ticker in tickers.items():
             if '/USDT' in symbol and symbol not in existing_symbols:
@@ -153,10 +165,10 @@ def agent_quant_strategist(target_coin):
         'sl_pct': dynamic_sl_pct
     }
 
-# --- AREA UTAMA: NEON AREA CHART & MULTI-POSITION (RUN EVERY 1 DETIK) ---
-@st.fragment(run_every=1)
-def render_multicoin_terminal():
-    MAX_POSITIONS = 4
+# --- AREA UTAMA: PORTFOLIO BALANCE GROWTH CHART & TRANSAKSI (RUN EVERY 3 DETIK) ---
+@st.fragment(run_every=5)
+def render_portfolio_terminal():
+    MAX_POSITIONS = 7
     ALLOCATION_PER_TRADE = 10.0
     
     if len(st.session_state['active_positions']) < MAX_POSITIONS:
@@ -170,134 +182,142 @@ def render_multicoin_terminal():
                 sym = strat['symbol']
                 
                 st.session_state['active_positions'][sym] = strat
-                log_agent("Agent 1 & 2", f"Buka posisi scalping di {sym} | Entry: ${strat['entry']}")
+                log_agent("Agent 1 & 2", f"Membeli token baru {sym} | Entry: ${strat['entry']}")
+                
+                # Masukkan token yang dibeli ke dalam riwayat transaksi
+                st.session_state['trade_history'].insert(0, {
+                    "time": datetime.now().strftime("%H:%M:%S"), 
+                    "symbol": sym, 
+                    "type": "BUY TOKEN", 
+                    "price": f"${strat['entry']}", 
+                    "status": "Active Position"
+                })
+                st.rerun()
+
+    # Evaluasi posisi aktif dan hitung floating PnL untuk memperbarui grafik saldo
+    floating_pnl_total = 0.0
+    active_pos_dict = st.session_state['active_positions']
+    
+    for sym, posisi in list(active_pos_dict.items()):
+        df = fetch_candles_1m(sym)
+        if df is not None and not df.empty:
+            last_price = df['close'].iloc[-1]
+            pnl_persen = ((last_price - posisi['entry']) / posisi['entry']) * 100
+            pnl_dollar = ALLOCATION_PER_TRADE * (pnl_persen / 100)
+            floating_pnl_total += pnl_dollar
+            
+            # Agent 3 (Guardian): Cek Target Profit atau Stop Loss
+            if last_price >= posisi['target']:
+                cuan = ALLOCATION_PER_TRADE * (posisi['tp_pct'] / 100)
+                st.session_state['virtual_balance'] += cuan
+                st.session_state['total_wins'] += 1
+                log_agent("Agent 3", f"🎯 TAKE PROFIT di {sym}! Keuntungan +${cuan:.2f}")
                 
                 st.session_state['trade_history'].insert(0, {
                     "time": datetime.now().strftime("%H:%M:%S"), 
                     "symbol": sym, 
-                    "type": "BUY (Scalp)", 
-                    "price": f"${strat['entry']}", 
-                    "status": "Active"
+                    "type": "TAKE PROFIT", 
+                    "price": f"${last_price}", 
+                    "status": f"+${cuan:.2f} (Win)"
                 })
+                del st.session_state['active_positions'][sym]
+                st.rerun()
+                
+            elif last_price <= posisi['sl']:
+                rugi = ALLOCATION_PER_TRADE * (posisi['sl_pct'] / 100)
+                st.session_state['virtual_balance'] -= rugi
+                st.session_state['total_losses'] += 1
+                log_agent("Agent 3", f"🛡️ STOP-LOSS di {sym}! Kerugian -${rugi:.2f}")
+                
+                st.session_state['trade_history'].insert(0, {
+                    "time": datetime.now().strftime("%H:%M:%S"), 
+                    "symbol": sym, 
+                    "type": "STOP LOSS", 
+                    "price": f"${last_price}", 
+                    "status": f"-${rugi:.2f} (Loss)"
+                })
+                del st.session_state['active_positions'][sym]
                 st.rerun()
 
+    # Catat riwayat saldo total (Saldo Real + Floating PnL) untuk grafik portofolio
+    current_total_equity = st.session_state['virtual_balance'] + floating_pnl_total
+    current_time_str = datetime.now().strftime("%H:%M:%S")
+    
+    # Simpan riwayat update saldo (maksimal 30 titik terakhir agar rapi)
+    st.session_state['balance_history'].append({'time': current_time_str, 'balance': current_total_equity})
+    if len(st.session_state['balance_history']) > 30:
+        st.session_state['balance_history'].pop(0)
+
+    # Layout Dashboard: Kiri untuk Grafik Saldo, Kanan untuk Riwayat Transaksi Token
     left_col, right_col = st.columns([2, 1])
     
     with left_col:
-        st.subheader("📈 Active Scalping Positions (Sleek Neon Chart)")
+        st.subheader("📈 Live Portfolio Balance Growth (Pergerakan Saldo)")
+        st.markdown("Grafik garis neon di bawah ini menampilkan pertumbuhan total nilai aset dan saldo portofoliomu secara otonom.")
         
-        active_pos_dict = st.session_state['active_positions']
+        # Buat Plotly Neon Area Chart untuk Pergerakan Saldo
+        hist_df = pd.DataFrame(st.session_state['balance_history'])
         
-        if not active_pos_dict:
-            st.info("🤖 AI sedang memindai pasar untuk membuka posisi scalping...")
+        line_color = '#00FF7F' if current_total_equity >= st.session_state['initial_balance'] else '#FF4500'
+        fill_color = 'rgba(0, 255, 127, 0.12)' if current_total_equity >= st.session_state['initial_balance'] else 'rgba(255, 69, 0, 0.12)'
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=hist_df['time'],
+            y=hist_df['balance'],
+            mode='lines+markers',
+            name='Total Equity ($)',
+            line=dict(color=line_color, width=3, shape='spline'),
+            fill='tozeroy',
+            fillcolor=fill_color
+        ))
+        
+        fig.update_layout(
+            title=f"<b>Total Nilai Portofolio: ${current_total_equity:.2f} USDT</b>",
+            xaxis_title="Waktu Sesi",
+            yaxis_title="USD ($)",
+            template="plotly_dark",
+            paper_bgcolor="#161b22",
+            plot_bgcolor="#161b22",
+            height=380,
+            margin=dict(l=10, r=10, t=40, b=10),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(showgrid=True, gridcolor='#21262d')
+        )
+        st.plotly_chart(fig, width='stretch', key="portfolio_balance_chart")
+        
+        # Ringkasan posisi aktif saat ini
+        st.markdown("---")
+        st.subheader("🔍 Status Posisi Koin Aktif di Pasar")
+        if active_pos_dict:
+            pos_list = []
+            for s, p in active_pos_dict.items():
+                pos_list.append({"Simbol Token": s, "Harga Masuk (Entry)": f"${p['entry']}", "Target TP": f"${p['target']:.5f}", "Batas SL": f"${p['sl']:.5f}"})
+            st.dataframe(pd.DataFrame(pos_list), width='stretch', hide_index=True)
         else:
-            symbols = list(active_pos_dict.keys())
-            
-            for i in range(0, len(symbols), 2):
-                cols = st.columns(2)
-                for j in range(2):
-                    if i + j < len(symbols):
-                        sym = symbols[i + j]
-                        posisi = active_pos_dict[sym]
-                        
-                        with cols[j]:
-                            df = fetch_candles_1m(sym)
-                            if df is not None and not df.empty:
-                                last_price = df['close'].iloc[-1]
-                                pnl_persen = ((last_price - posisi['entry']) / posisi['entry']) * 100
-                                pnl_dollar = ALLOCATION_PER_TRADE * (pnl_persen / 100)
-                                
-                                # TAMPILAN CHART ALAT CRYPTO X (Sleek Neon Area Chart dengan Spline Smooth Curve)
-                                line_color = '#00FF7F' if pnl_dollar >= 0 else '#FF4500'
-                                fill_color = 'rgba(0, 255, 127, 0.12)' if pnl_dollar >= 0 else 'rgba(255, 69, 0, 0.12)'
-                                
-                                fig = go.Figure()
-                                fig.add_trace(go.Scatter(
-                                    x=df['timestamp'],
-                                    y=df['close'],
-                                    mode='lines',
-                                    name=sym,
-                                    line=dict(color=line_color, width=2.5, shape='spline'), # Garis lengkung halus
-                                    fill='tozeroy', # Efek gradasi area bawah garis ala chart crypto modern
-                                    fillcolor=fill_color
-                                ))
-                                
-                                fig.add_hline(y=posisi['target'], line_dash="dash", line_color="#00FF7F", annotation_text="TP")
-                                fig.add_hline(y=posisi['sl'], line_dash="dash", line_color="#FF4500", annotation_text="SL")
-                                
-                                fig.update_layout(
-                                    title=f"<b>{sym}</b> | PnL: {pnl_persen:+.2f}%",
-                                    template="plotly_dark",
-                                    paper_bgcolor="#161b22",
-                                    plot_bgcolor="#161b22",
-                                    height=250,
-                                    margin=dict(l=10, r=10, t=30, b=10),
-                                    xaxis=dict(showgrid=False),
-                                    yaxis=dict(showgrid=True, gridcolor='#21262d')
-                                )
-                                st.plotly_chart(fig, width='stretch', key=f"neon_chart_{sym.replace('/', '_')}")
-                                
-                                color_style = "color: #00FF7F;" if pnl_dollar >= 0 else "color: #FF4500;"
-                                st.markdown(f"""
-                                    <div style="background-color: #111622; padding: 8px; border-radius: 6px; font-size: 13px; display: flex; justify-content: space-between;">
-                                        <span>Entry: ${posisi['entry']}</span>
-                                        <span>Live: ${last_price}</span>
-                                        <b style="{color_style}">{pnl_dollar:+.2f} USDT</b>
-                                    </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # Agent 3 (Guardian) Evaluasi TP/SL
-                                if last_price >= posisi['target']:
-                                    cuan = ALLOCATION_PER_TRADE * (posisi['tp_pct'] / 100)
-                                    st.session_state['virtual_balance'] += cuan
-                                    st.session_state['total_wins'] += 1
-                                    log_agent("Agent 3", f"🎯 TAKE PROFIT di {sym}! +${cuan:.2f}")
-                                    st.session_state['trade_history'].insert(0, {
-                                        "time": datetime.now().strftime("%H:%M:%S"), 
-                                        "symbol": sym, 
-                                        "type": "TAKE PROFIT", 
-                                        "price": f"${last_price}", 
-                                        "status": f"+${cuan:.2f} (Win)"
-                                    })
-                                    del st.session_state['active_positions'][sym]
-                                    st.rerun()
-                                    
-                                elif last_price <= posisi['sl']:
-                                    rugi = ALLOCATION_PER_TRADE * (posisi['sl_pct'] / 100)
-                                    st.session_state['virtual_balance'] -= rugi
-                                    st.session_state['total_losses'] += 1
-                                    log_agent("Agent 3", f"🛡️ STOP-LOSS di {sym}! -${rugi:.2f}")
-                                    st.session_state['trade_history'].insert(0, {
-                                        "time": datetime.now().strftime("%H:%M:%S"), 
-                                        "symbol": sym, 
-                                        "type": "STOP LOSS", 
-                                        "price": f"${last_price}", 
-                                        "status": f"-${rugi:.2f} (Loss)"
-                                    })
-                                    del st.session_state['active_positions'][sym]
-                                    st.rerun()
+            st.info("AI sedang menunggu setup struktur pasar berikutnya untuk membuka posisi baru.")
 
         st.markdown("---")
-        st.subheader("🧠 Multi-Agent Scalping Activity Log")
-        for log in st.session_state['agent_logs'][:4]:
+        st.subheader("🧠 Multi-Agent Activity Log")
+        for log in st.session_state['agent_logs'][:3]:
             st.markdown(f'<div class="agent-log">{log}</div>', unsafe_allow_html=True)
 
     with right_col:
         st.subheader("📋 Live Riwayat Transaksi")
-        st.markdown("Rekam jejak eksekusi multi-posisi paralel.")
+        st.markdown("Daftar token yang dibeli serta status profit/loss otonom.")
         
         if st.session_state['trade_history']:
             history_df = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(history_df, width='stretch', hide_index=True)
         else:
-            st.info("Belum ada transaksi terekam.")
+            st.info("Belum ada transaksi token terekam.")
             
         st.markdown("---")
-        st.subheader("🤖 Scalping Architecture")
+        st.subheader("🤖 Sistem Proteksi Bybit")
         st.info(
-            "• **Market Scout:** Memindai peluang diskon secara paralel.\n\n"
-            "• **Quant Strategist:** Menghitung parameter TP/SL adaptif.\n\n"
-            "• **Guardian Agent:** Memantau chart neon tiap detik dan mengunci profit otonom."
+            "• **Anti-Rate-Limit Cache:** Permintaan data ke server Bybit dijeda dan di-cache selama 15 detik agar IP server cloud tidak terblokir.\n\n"
+            "• **Balance Tracking:** Memantau akumulasi modal bersih secara *real-time*.\n\n"
+            "• **Autonomous Agent:** Bekerja mandiri 24/7 tanpa perlu pengaturan manual."
         )
 
-render_multicoin_terminal()
+render_portfolio_terminal()

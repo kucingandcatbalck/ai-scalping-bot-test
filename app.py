@@ -2,46 +2,50 @@ import streamlit as st
 import ccxt
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import json
 import os
 
-# Konfigurasi Halaman & Tema Terminal Institusional AI
-st.set_page_config(page_title="AI Trend Scalper Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Multi-Agent AI Swing Pro", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    .main { background-color: #05070a; color: #f0f6fc; }
-    div.stMetric { background-color: #0d1117; padding: 10px; border-radius: 6px; border: 1px solid #30363d; }
-    div.stMetric label { color: #8b949e !important; font-size: 12px; }
-    .agent-pipeline { background-color: #0d1117; border-bottom: 1px solid #30363d; padding: 6px 8px; font-family: monospace; font-size: 11px; color: #c9d1d9; }
-    .ai-agent { font-weight: bold; color: #00FF7F; }
-    .ai-alert { font-weight: bold; color: #ff7b72; }
-    .ai-flash { font-weight: bold; color: #58a6ff; }
+    .main { background-color: #0d1117; color: #c9d1d9; }
+    div.stMetric { background-color: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #30363d; }
+    div.stMetric label { color: #8b949e !important; font-size: 13px; font-weight: bold; }
+    .log-container { background-color: #010409; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 350px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    .log-line { border-bottom: 1px solid #21262d; padding: 4px 0; }
+    .c-time { color: #8b949e; }
+    .c-system { color: #58a6ff; font-weight: bold; }
+    .c-profit { color: #3fb950; font-weight: bold; }
+    .c-loss { color: #f85149; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-MEMORY_FILE = "ai_trend_brain.json"
+MEMORY_FILE = "ai_ensemble_weights.json"
 WITA = pytz.timezone('Asia/Makassar')
 
-def get_wita_time():
-    return datetime.now(WITA).strftime("%H:%M:%S")
-
-def load_ai_brain():
+# Inisialisasi Bobot Pembelajaran AI (Self-Learning Weights)
+def load_ai_weights():
+    default_weights = {
+        'trend_agent': 1.0, 
+        'momentum_agent': 1.0, 
+        'volatility_agent': 1.0,
+        'win_history': 0,
+        'loss_history': 0
+    }
     if os.path.exists(MEMORY_FILE):
         try:
             with open(MEMORY_FILE, "r") as f: return json.load(f)
-        except: pass
-    return {}
+        except: return default_weights
+    return default_weights
 
-def save_ai_brain(memory_data):
-    try:
-        with open(MEMORY_FILE, "w") as f: json.dump(memory_data, f)
-    except: pass
+def save_ai_weights(weights):
+    with open(MEMORY_FILE, "w") as f: json.dump(weights, f)
 
 @st.cache_resource
-def init_bitget_live():
+def init_exchange():
     exchange = ccxt.bitget({
         'apiKey': st.secrets["BITGET_API_KEY"],
         'secret': st.secrets["BITGET_SECRET"],
@@ -53,189 +57,162 @@ def init_bitget_live():
     return exchange
 
 try:
-    exchange = init_bitget_live()
+    exchange = init_exchange()
     balance = exchange.fetch_balance()
     usdt_free = balance.get('free', {}).get('USDT', 0.0)
     total_eq = balance.get('total', {}).get('USDT', 0.0)
 except Exception as e:
-    st.error(f"Gagal terhubung ke API: {e}")
+    st.error(f"Koneksi API Gagal: {e}")
     st.stop()
 
 # State Management
-if 'trade_history' not in st.session_state: st.session_state['trade_history'] = []
-if 'active_positions' not in st.session_state: st.session_state['active_positions'] = {}
-if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = [f'<div class="agent-pipeline"><span class="ai-agent">[{get_wita_time()}]</span> AI Trend Scalper Ready. Menunggu momentum...</div>']
-if 'ai_brain' not in st.session_state: st.session_state['ai_brain'] = load_ai_brain()
-if 'bot_active' not in st.session_state: st.session_state['bot_active'] = False  
-if 'initial_balance' not in st.session_state: st.session_state['initial_balance'] = total_eq if total_eq > 0 else 1.0
+if 'logs' not in st.session_state: st.session_state['logs'] = []
+if 'ai_weights' not in st.session_state: st.session_state['ai_weights'] = load_ai_weights()
+if 'active_trades' not in st.session_state: st.session_state['active_trades'] = {}
+if 'is_running' not in st.session_state: st.session_state['is_running'] = False
+if 'start_balance' not in st.session_state: st.session_state['start_balance'] = total_eq if total_eq > 0 else 1.0
 
-def add_log(msg, log_type="normal"):
-    t = get_wita_time()
-    tag_class = "ai-agent"
-    if log_type == "alert": tag_class = "ai-alert"
-    elif log_type == "flash": tag_class = "ai-flash"
-    log_html = f'<div class="agent-pipeline"><span class="{tag_class}">[{t}]</span> {msg}</div>'
-    st.session_state['swarm_logs'].insert(0, log_html)
-    if len(st.session_state['swarm_logs']) > 8: st.session_state['swarm_logs'].pop()
+def push_log(msg, ltype="system"):
+    t_str = datetime.now(WITA).strftime("%H:%M:%S")
+    color = "c-system"
+    if ltype == "profit": color = "c-profit"
+    elif ltype == "loss": color = "c-loss"
+    st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
+    if len(st.session_state['logs']) > 50: st.session_state['logs'].pop()
 
-# --- NEW: AI Logic dengan Timeframe 15m ---
-@st.cache_data(ttl=15) 
-def fetch_deep_quant_signal(symbol):
+@st.cache_data(ttl=60)
+def fetch_indicators(symbol):
     try:
-        # Menggunakan data 15 menit agar analisa lebih berbobot
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='15m', limit=30)
-        if not ohlcv or len(ohlcv) < 20: return False, 50.0, 0.0, False
+        # Timeframe 1 Jam (1H) untuk Swing Trading
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=250)
+        df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        closes = df['close']
+        # Trend: EMA 50 & 200
+        df['ema50'] = df['close'].ewm(span=50).mean()
+        df['ema200'] = df['close'].ewm(span=200).mean()
         
-        # Trend Filter (SMA 20)
-        sma20 = closes.rolling(window=20).mean().iloc[-1]
-        is_uptrend = closes.iloc[-1] > sma20
-        
-        # RSI 14
-        delta = closes.diff()
+        # Momentum: RSI 14
+        delta = df['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        current_rsi = rsi.iloc[-1]
+        df['rsi'] = 100 - (100 / (1 + rs))
         
-        volatility = ((df['high'].iloc[-1] - df['low'].iloc[-1]) / df['low'].iloc[-1]) * 100
-        is_bouncing = (closes.iloc[-1] > closes.iloc[-2]) and (current_rsi < 60) # Mencegah beli di pucuk
+        # Volatility: Bollinger Bands (20, 2)
+        df['bb_mid'] = df['close'].rolling(window=20).mean()
+        df['bb_std'] = df['close'].rolling(window=20).std()
+        df['bb_lower'] = df['bb_mid'] - (df['bb_std'] * 2)
         
-        return is_bouncing, current_rsi, volatility, is_uptrend
-    except: return False, 50.0, 0.0, False
+        return df.iloc[-1]
+    except: return None
 
 with st.sidebar:
-    st.markdown("<h3 style='color: #00FF7F;'>🧠 AI CONTROL</h3>", unsafe_allow_html=True)
-    if st.button("🚀 ACTIVATE AI", use_container_width=True):
-        st.session_state['bot_active'] = True
-        add_log("Engine ON. Menganalisa market...", "flash")
+    st.title("🤖 Master AI Engine")
+    st.write("Sistem Pembelajaran Otomatis: **AKTIF**")
+    if st.button("▶️ MULAI TRADING", use_container_width=True):
+        st.session_state['is_running'] = True
+        push_log("Ensemble AI diaktifkan. Memantau sinyal 1 Jam...", "system")
         st.rerun()
-    if st.button("🛑 HALT / EXIT", use_container_width=True):
-        st.session_state['bot_active'] = False
-        add_log("System Halted. Posisi diselesaikan manual / ditutup.", "alert")
+    if st.button("⏸️ HENTIKAN", use_container_width=True):
+        st.session_state['is_running'] = False
+        push_log("Sistem dihentikan. Menunggu instruksi.", "system")
         st.rerun()
+    
+    st.markdown("---")
+    st.markdown("**Bobot Otak AI Saat Ini:**")
+    st.progress(min(1.0, st.session_state['ai_weights']['trend_agent']/3.0), text=f"Trend: {st.session_state['ai_weights']['trend_agent']:.2f}")
+    st.progress(min(1.0, st.session_state['ai_weights']['momentum_agent']/3.0), text=f"Momentum: {st.session_state['ai_weights']['momentum_agent']:.2f}")
+    st.progress(min(1.0, st.session_state['ai_weights']['volatility_agent']/3.0), text=f"Volatility: {st.session_state['ai_weights']['volatility_agent']:.2f}")
 
-st.markdown("<h3 style='color: #00FF7F;'>⚡ AI TREND SCALPER PRO</h3>", unsafe_allow_html=True)
-status_indicator = "🟢 ONLINE (AI SCOUTING)" if st.session_state['bot_active'] else "🔴 OFFLINE"
-
-active_count = len(st.session_state['active_positions'])
-# Max posisi disesuaikan dengan saldo yang tersisa agar aman
-max_pos = 1 if usdt_free < 6.0 else 2 
-pnl_pct = ((total_eq - st.session_state['initial_balance']) / st.session_state['initial_balance']) * 100 if st.session_state['initial_balance'] > 0 else 0.0
-
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Status", status_indicator)
-c2.metric("Saldo USDT", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}%")
-c3.metric("Posisi Aktif", f"{active_count} / {max_pos}")
-c4.metric("AI Mode", "15m Trend & Macro Hold")
+st.header("📈 AI Multi-Agent Swing Terminal")
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Status AI", "🟢 BERJALAN" if st.session_state['is_running'] else "🔴 OFFLINE")
+col2.metric("Saldo USDT", f"${total_eq:,.2f}")
+col3.metric("Posisi Aktif", f"{len(st.session_state['active_trades'])} / 2 Max")
+col4.metric("Win / Loss Ratio", f"{st.session_state['ai_weights']['win_history']} W / {st.session_state['ai_weights']['loss_history']} L")
 st.markdown("---")
 
-@st.fragment(run_every=3) # Diperlambat agar tidak membebani limit API Streamlit
-def run_ai_trade_loop():
-    if not st.session_state.get('bot_active', False): return
+@st.fragment(run_every=60) # Cek pasar setiap 60 detik (sangat aman untuk server & API)
+def main_trading_loop():
+    if not st.session_state['is_running']: return
 
-    try:
-        # Fokus watchlist: Kinerja fundamental & likuiditas baik untuk scalping
-        WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'BTC/USDT', 'ETH/USDT']
-        
-        # --- ENTRY PHASE ---
-        if active_count < max_pos and usdt_free > 3.0:
-            existing_syms = list(st.session_state['active_positions'].keys())
-            
-            for sym in WATCHLIST:
-                if sym in existing_syms: continue
-                
-                if sym not in st.session_state['ai_brain']:
-                    st.session_state['ai_brain'][sym] = {'wins': 0, 'losses': 0}
-                brain = st.session_state['ai_brain'][sym]
-                
-                is_bouncing, rsi_val, volatility, is_uptrend = fetch_deep_quant_signal(sym)
-                
-                # Syarat Masuk: Mantul dari bawah, RSI sehat, dan sedang Uptrend di TF 15m
-                if is_bouncing and is_uptrend and (30 <= rsi_val <= 65):
-                    ticker_data = exchange.fetch_ticker(sym)
-                    current_price = float(ticker_data['last'])
-                    
-                    # 💡 FIX ALOKASI MINIMAL (Menghindari Error 45110)
-                    alloc = 3.0 # Hardcode minimal $3.00 agar aman saat fee & fluktuasi
-                    
-                    # Target TP/SL Lebih Lebar (Spot butuh ruang gerak)
-                    tp_pct = 0.015  # Target 1.5%
-                    sl_pct = 0.015  # Stop Loss 1.5%
-
-                    if usdt_free >= alloc:
-                        try:
-                            exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
-                            st.session_state['active_positions'][sym] = {
-                                'entry': current_price, 
-                                'amount': alloc / current_price, 
-                                'alloc': alloc,
-                                'target': current_price * (1 + tp_pct), 
-                                'sl': current_price * (1 - sl_pct), 
-                                'entry_time': datetime.now(WITA)
-                            }
-                            add_log(f"BUY {sym} pada {current_price:.4f} | Trend Konfirmasi", "flash")
-                            st.session_state['trade_history'].insert(0, {"Waktu": get_wita_time(), "Token": sym, "Aksi": f"BUY (${alloc:.2f})", "Hasil": "Aktif"})
-                            st.session_state['trade_history'] = st.session_state['trade_history'][:5]
-                            st.rerun()
-                            break
-                        except Exception as e:
-                            add_log(f"Gagal order {sym}: {str(e)}", "alert")
-
-        # --- EXIT & LEARNING PHASE ---
-        if st.session_state['active_positions']:
-            for sym, pos in list(st.session_state['active_positions'].items()):
-                ticker = exchange.fetch_ticker(sym)
-                current_price = float(ticker['last'])
-                pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
-                
-                # 💡 NEW TIME-STOP: 45 Menit (Beri waktu harga bereaksi)
-                time_held_minutes = (datetime.now(WITA) - pos['entry_time']).total_seconds() / 60
-                
-                if current_price >= pos['target'] or current_price <= pos['sl'] or time_held_minutes >= 45:
-                    
-                    if current_price >= pos['target']: act = "TAKE PROFIT"
-                    elif current_price <= pos['sl']: act = "STOP LOSS"
-                    else: act = "TIME-STOP 45m" 
-                    
-                    try:
-                        sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['amount'] * 0.99)
-                        exchange.create_market_sell_order(sym, sell_amt)
-                        
-                        pnl_usd = pos['alloc'] * (pnl_pct / 100)
-                        
-                        if pnl_pct > 0.15:
-                            st.session_state['ai_brain'][sym]['wins'] += 1
-                            add_log(f"✅ {act} {sym}: +${pnl_usd:.2f} ({pnl_pct:+.2f}%)")
-                        else:
-                            st.session_state['ai_brain'][sym]['losses'] += 1
-                            if act == "TIME-STOP 45m":
-                                add_log(f"⏱️ WAKTU HABIS {sym}: Terjual di {pnl_pct:+.2f}%", "flash")
-                            else:
-                                add_log(f"❌ {act} {sym}: -${abs(pnl_usd):.2f} ({pnl_pct:+.2f}%)", "alert")
-
-                        save_ai_brain(st.session_state['ai_brain'])
-                        st.session_state['trade_history'].insert(0, {"Waktu": get_wita_time(), "Token": sym, "Aksi": act, "Hasil": f"{pnl_pct:+.2f}%"})
-                        st.session_state['trade_history'] = st.session_state['trade_history'][:5]
-                        del st.session_state['active_positions'][sym]
-                        st.rerun()
-                        
-                    except Exception as e:
-                        add_log(f"Gagal jual {sym} (Kemungkinan minus under $1): {str(e)}", "alert")
-
-    except Exception as e: add_log(f"Sistem Evaluasi: Menunggu kestabilan API...", "normal")
-
-# --- UI BAWAH ---
-c_left, c_right = st.columns([1.2, 1.8])
-with c_left:
-    st.markdown("**📋 5 Order Terakhir**")
-    if st.session_state['trade_history']: st.dataframe(pd.DataFrame(st.session_state['trade_history']), width='stretch', hide_index=True)
-    else: st.info("Menunggu sinyal AI...")
-with c_right:
-    st.markdown("**⚡ Terminal Analisis AI**")
-    for log in st.session_state['swarm_logs']: st.markdown(log, unsafe_allow_html=True)
+    # Watchlist Terpilih (Koin dengan likuiditas bagus & fundamental solid)
+    WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'BTC/USDT', 'ETH/USDT']
     
-run_ai_trade_loop()
+    # 1. EVALUASI POSISI AKTIF (EXIT LOGIC)
+    for sym, pos in list(st.session_state['active_trades'].items()):
+        try:
+            current_price = float(exchange.fetch_ticker(sym)['last'])
+            pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
+            time_held = datetime.now(WITA) - pos['time']
+            
+            # Keluar jika TP (4.5%), SL (-2.5%), atau Time-Stop (24 Jam)
+            if current_price >= pos['tp'] or current_price <= pos['sl'] or time_held.total_seconds() > 86400:
+                is_win = pnl_pct > 0.5
+                reason = "TAKE PROFIT" if is_win else ("STOP LOSS" if current_price <= pos['sl'] else "TIME-STOP 24H")
+                
+                # Jual Koin
+                sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['qty'] * 0.99)
+                exchange.create_market_sell_order(sym, sell_amt)
+                
+                # AI SELF-LEARNING (Update Bobot Berdasarkan Hasil)
+                W = st.session_state['ai_weights']
+                if is_win:
+                    W['win_history'] += 1
+                    W['trend_agent'] = min(3.0, W['trend_agent'] + (0.1 * pos['votes']['trend']))
+                    W['momentum_agent'] = min(3.0, W['momentum_agent'] + (0.1 * pos['votes']['momentum']))
+                    push_log(f"✅ {reason} {sym} (+{pnl_pct:.2f}%). AI Update Bobot Positif.", "profit")
+                else:
+                    W['loss_history'] += 1
+                    W['trend_agent'] = max(0.5, W['trend_agent'] - (0.05 * pos['votes']['trend']))
+                    W['momentum_agent'] = max(0.5, W['momentum_agent'] - (0.05 * pos['votes']['momentum']))
+                    push_log(f"❌ {reason} {sym} ({pnl_pct:.2f}%). AI Update Bobot Negatif.", "loss")
+                
+                save_ai_weights(W)
+                del st.session_state['active_trades'][sym]
+                st.rerun()
+        except Exception as e:
+            push_log(f"Gagal Evaluasi {sym}: {e}", "loss")
+
+    # 2. MENCARI PELUANG BARU (ENTRY LOGIC)
+    if len(st.session_state['active_trades']) < 2 and usdt_free >= 3.5:
+        for sym in WATCHLIST:
+            if sym in st.session_state['active_trades']: continue
+            
+            data = fetch_indicators(sym)
+            if data is None: continue
+            
+            # Polling 3 Agent
+            vote_trend = 1 if data['close'] > data['ema50'] > data['ema200'] else 0
+            vote_momentum = 1 if (35 <= data['rsi'] <= 55) else 0
+            vote_volatility = 1 if data['close'] <= data['bb_lower'] * 1.02 else 0 # Dekat batas bawah
+            
+            W = st.session_state['ai_weights']
+            total_score = (vote_trend * W['trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_volatility * W['volatility_agent'])
+            
+            # Jika skor kombinasi sangat tinggi (minimal 2 indikator penting setuju)
+            if total_score >= (W['trend_agent'] + W['momentum_agent']) * 0.8:
+                try:
+                    alloc = 3.5 # Flat $3.50 untuk keamanan modal $8
+                    exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
+                    
+                    st.session_state['active_trades'][sym] = {
+                        'entry': data['close'],
+                        'qty': alloc / data['close'],
+                        'tp': data['close'] * 1.045, # Target 4.5%
+                        'sl': data['close'] * 0.975, # SL 2.5%
+                        'time': datetime.now(WITA),
+                        'votes': {'trend': vote_trend, 'momentum': vote_momentum}
+                    }
+                    push_log(f"🎯 BUY {sym} @ {data['close']:.4f} | AI Score: {total_score:.2f}", "system")
+                    st.rerun()
+                    break
+                except Exception as e:
+                    push_log(f"Gagal Buy {sym} (Cek Saldo Minimum): {e}", "loss")
+
+c_log = st.container()
+with c_log:
+    st.markdown("**Terminal Log (Auto-Scroll)**")
+    st.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
+
+main_trading_loop()

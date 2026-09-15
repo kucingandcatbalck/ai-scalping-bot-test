@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.7 (Dynamic Top Scanner)", 
+    page_title="Deep AI Swing Pro v7.0 (High-Reasoning)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -31,7 +31,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-MEMORY_FILE = "ai_deep_autonomous_v6.json"
+MEMORY_FILE = "ai_deep_autonomous_v7.json"
 WITA = pytz.timezone('Asia/Makassar')
 
 def get_wita_time():
@@ -39,9 +39,9 @@ def get_wita_time():
 
 def load_ai_weights():
     default_weights = {
-        'global_trend_agent': 1.5, 'local_trend_agent': 1.0, 
-        'momentum_agent': 1.0, 'volatility_agent': 1.0,
-        'volume_whale_agent': 1.0, 'win_history': 0,
+        'global_trend_agent': 1.5, 'local_trend_agent': 1.2, 
+        'momentum_agent': 1.2, 'volatility_agent': 1.3,
+        'volume_whale_agent': 1.5, 'win_history': 0,
         'loss_history': 0, 'total_profit_usdt': 0.0, 'trailing_activations': 0
     }
     if os.path.exists(MEMORY_FILE):
@@ -101,7 +101,7 @@ def push_log(msg, ltype="system"):
     elif ltype == "loss": color = "c-loss"
     elif ltype == "warn": color = "c-warn"
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
-    if len(st.session_state['logs']) > 20: st.session_state['logs'].pop()
+    if len(st.session_state['logs']) > 25: st.session_state['logs'].pop()
 
 def push_scan(msg, status="info"):
     t_str = get_wita_time()
@@ -120,32 +120,48 @@ def scan_global_market():
         ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=50)
         df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df['ema20'] = df['close'].ewm(span=20).mean()
+        df['ema50'] = df['close'].ewm(span=50).mean()
         last_close = df['close'].iloc[-1]
         ema20 = df['ema20'].iloc[-1]
+        ema50 = df['ema50'].iloc[-1]
         
-        if last_close > ema20: return "BULLISH 🚀", 1.0
-        elif last_close < ema20: return "BEARISH 🩸", -1.0
+        if last_close > ema20 and ema20 > ema50: return "STRONG BULLISH 🚀", 1.5
+        elif last_close > ema20: return "BULLISH 📈", 1.0
+        elif last_close < ema20 and ema20 < ema50: return "BEARISH 🩸", -1.0
         else: return "KONSOLIDASI ⚖️", 0.0
     except: return "UNKNOWN", 0.0
 
 @st.cache_data(ttl=60)
-def fetch_deep_indicators(symbol):
+def fetch_high_reasoning_indicators(symbol):
     try:
-        ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=150)
+        # Tarik data lebih panjang untuk analisis mendalam (High-Reasoning)
+        ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=200)
         df_1h = pd.DataFrame(ohlcv_1h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
+        df_1h['ema20'] = df_1h['close'].ewm(span=20).mean()
         df_1h['ema50'] = df_1h['close'].ewm(span=50).mean()
         
+        # RSI 14
         delta = df_1h['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         df_1h['rsi'] = 100 - (100 / (1 + rs))
+        
+        # Bollinger Bands untuk Volatilitas & Titik Pantul
+        df_1h['bb_mid'] = df_1h['close'].rolling(window=20).mean()
+        df_1h['bb_std'] = df_1h['close'].rolling(window=20).std()
+        df_1h['bb_lower'] = df_1h['bb_mid'] - (df_1h['bb_std'] * 2)
+        df_1h['bb_upper'] = df_1h['bb_mid'] + (df_1h['bb_std'] * 2)
+        
+        # Volume Whale Analysis (SMA 20 Volume)
         df_1h['vol_sma20'] = df_1h['vol'].rolling(window=20).mean()
         
-        ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=30)
+        # Multi-Timeframe 4H Validation
+        ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=50)
         df_4h = pd.DataFrame(ohlcv_4h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df_4h['ema20'] = df_4h['close'].ewm(span=20).mean()
-        is_4h_uptrend = df_4h['close'].iloc[-1] > df_4h['ema20'].iloc[-1]
+        df_4h['ema50'] = df_4h['close'].ewm(span=50).mean()
+        is_4h_uptrend = df_4h['close'].iloc[-1] > df_4h['ema20'].iloc[-1] and df_4h['ema20'].iloc[-1] > df_4h['ema50'].iloc[-1]
         
         res = df_1h.iloc[-1].to_dict()
         res['is_4h_uptrend'] = is_4h_uptrend
@@ -154,14 +170,14 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.7")
-    st.write("Mode: **Dynamic Top Scanner**")
+    st.title("🧠 Deep AI Brain v7.0")
+    st.write("Mode: **High-Reasoning Engine**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("V6.7 Dynamic AI Aktif!", "system")
+        push_log("V7.0 High-Reasoning AI Aktif (Memanfaatkan Kapasitas Cloud Optimal).", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -169,7 +185,7 @@ with st.sidebar:
         push_log("Sistem AI Halted.", "warn")
         st.rerun()
 
-st.header("⚡ AI Swing Pro (Dynamic Telemetry)")
+st.header("⚡ AI Swing Pro (High-Reasoning Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -180,14 +196,14 @@ st.markdown("---")
 if not st.session_state['is_running']:
     st.warning(f"⏸️ **SISTEM DIJEDA** | Klik 'Aktifkan AI' untuk mulai.")
 else:
-    st.success(f"🟢 **MESIN AI AKTIF** | Memindai koin-koin berpotensi tinggi dari kategori Volume & Gainer 24/7.")
+    st.success(f"🟢 **MESIN AI AKTIF (HIGH-REASONING)** | Menggunakan analisis multi-timeframe & konvergensi mendalam.")
 
 col_left, col_right = st.columns(2)
 with col_left:
     st.markdown("**🧠 Jaringan Saraf Keputusan (Log)**")
     log_container = st.empty()
 with col_right:
-    st.markdown("**🔍 Scanner Telemetry (Max 20 Baris)**")
+    st.markdown("**🔍 High-Reasoning Telemetry (Max 20 Baris)**")
     scan_container = st.empty()
 
 @st.fragment(run_every=60)
@@ -199,26 +215,27 @@ def autonomous_trading_loop():
         
     now_wita = datetime.now(WITA)
     
-    # Menargetkan koin likuid teratas (Kategori Populer, Gainer, dan Volume Tinggi)
-    WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT', 'PEPE/USDT', 'DOGE/USDT']
+    # Watchlist Diperluas dengan Koin Likuiditas Tinggi Pilihan
+    WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT']
     
     macro_status, macro_score = scan_global_market()
     current_total_eq = total_eq
     max_pos_allowed = 1 if current_total_eq < 10.0 else 2
     
-    push_scan(f"🔄 Scan Dynamic Top Market ({now_wita.strftime('%H:%M:%S')} WITA) | BTC: {macro_status}", "heartbeat")
+    push_scan(f"🔄 Deep Reasoning Scan ({now_wita.strftime('%H:%M:%S')} WITA) | Makro: {macro_status}", "heartbeat")
     
+    # 1. AI EXIT MANAGER AGENT (Trailing & Stop Loss Cerdas)
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:
             current_price = float(exchange.fetch_ticker(sym)['last'])
             pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             
-            if pnl_pct >= 1.5 and not pos.get('trailing_breakeven_active', False):
+            if pnl_pct >= 1.2 and not pos.get('trailing_breakeven_active', False):
                 pos['sl'] = pos['entry']
                 pos['trailing_breakeven_active'] = True
-                push_log(f"🛡️ TRAILING STOP {sym}: SL ke Breakeven.", "warn")
+                push_log(f"🛡️ TRAILING STOP {sym}: Profit +{pnl_pct:.2f}%! SL diamankan ke harga modal.", "warn")
 
-            dynamic_tp = pos['entry'] * 1.035 if macro_score > 0 else pos['entry'] * 1.02
+            dynamic_tp = pos['entry'] * 1.04 if macro_score > 0 else pos['entry'] * 1.02
             
             if current_price >= dynamic_tp or current_price <= pos['sl']:
                 is_win = pnl_pct > 0.1 
@@ -233,55 +250,67 @@ def autonomous_trading_loop():
                 if is_win:
                     W['win_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
-                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f}", "profit")
+                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%)", "profit")
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
-                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f}", "loss")
+                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt:.2f)} ({pnl_pct:.2f}%)", "loss")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
                 st.rerun()
         except Exception as e: pass
 
+    # 2. AI HIGH-REASONING SCANNER AGENT
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']:
             continue
             
-        data = fetch_deep_indicators(sym)
+        data = fetch_high_reasoning_indicators(sym)
         if data is None: continue
         
         rsi = data.get('rsi', 50.0)
         vol_ratio = (data['vol'] / data['vol_sma20']) * 100 if data['vol_sma20'] > 0 else 100.0
+        close_price = data['close']
+        ema20 = data['ema20']
+        ema50 = data['ema50']
+        bb_lower = data['bb_lower']
         
+        # Penalaran Multi-Agen Berlapis
         if not data['is_4h_uptrend']:
-            push_scan(f"Verdict {sym} -> SKIP (Tren 4H)", "skipped")
+            push_scan(f"Verdict {sym} -> SKIP (Struktur 4H Belum Uptrend)", "skipped")
             continue 
             
-        vote_global = 1.0 if macro_score > 0 else 0.0 
-        vote_trend = 1.0 if data['close'] > data['ema50'] else 0.0
-        vote_momentum = 1.0 if (40 <= rsi <= 65) else 0.0  
-        vote_whale = 1.5 if vol_ratio > 130 else 0.0  
+        vote_global = macro_score 
+        vote_local_trend = 1.5 if (close_price > ema20 and ema20 > ema50) else 0.5
+        vote_momentum = 1.2 if (42 <= rsi <= 68) else 0.0  
+        vote_volatility = 1.3 if close_price <= bb_lower * 1.015 else 0.8 # Mendeteksi area pantul bawah Bollinger Bands
+        vote_whale = 1.8 if vol_ratio > 140 else 0.0 # Deteksi akumulasi volume besar
         
         W = st.session_state['ai_weights']
-        total_score = (vote_global * W['global_trend_agent']) + (vote_trend * W['local_trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_whale * W['volume_whale_agent'])
+        total_score = (vote_global * W['global_trend_agent']) + \
+                      (vote_local_trend * W['local_trend_agent']) + \
+                      (vote_momentum * W['momentum_agent']) + \
+                      (vote_volatility * W['volatility_agent']) + \
+                      (vote_whale * W['volume_whale_agent'])
         
-        threshold = 2.5 
-        push_scan(f"Check {sym} | RSI: {rsi:.1f} | Score: {total_score:.2f}", "info")
+        threshold = 3.8 # Ambang batas kecerdasan ketat untuk memastikan kualitas sinyal tinggi
+        
+        push_scan(f"Reasoning {sym} | RSI: {rsi:.1f} | Vol: {vol_ratio:.0f}% | Score: {total_score:.2f}", "info")
         
         if total_score >= threshold and len(st.session_state['active_trades']) < max_pos_allowed and usdt_free >= 2.5:
-            push_scan(f"Verdict {sym} -> APPROVED!", "passed")
+            push_scan(f"Verdict {sym} -> APPROVED (High Confidence Score: {total_score:.2f})", "passed")
             try:
                 alloc = max(2.20, round(usdt_free * 0.45, 2))
                 if alloc > usdt_free * 0.95: alloc = round(usdt_free * 0.95, 2)
                 
                 exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
                 st.session_state['active_trades'][sym] = {
-                    'entry': data['close'], 'qty': alloc / data['close'], 'alloc': alloc,
-                    'sl': data['close'] * 0.965, 'time': now_wita.isoformat(),
+                    'entry': close_price, 'qty': alloc / close_price, 'alloc': alloc,
+                    'sl': close_price * 0.962, 'time': now_wita.isoformat(),
                     'trailing_breakeven_active': False
                 }
-                push_log(f"🎯 BUY {sym} @ {data['close']:.4f} | ${alloc:.2f}", "system")
+                push_log(f"🎯 HIGH-CONFIDENCE BUY {sym} @ {close_price:.4f} | Size: ${alloc:.2f}", "system")
                 st.rerun()
                 break
             except Exception as e:

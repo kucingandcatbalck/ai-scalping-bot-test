@@ -289,7 +289,7 @@ def autonomous_trading_loop():
         threshold = (W['global_trend_agent'] + W['local_trend_agent'] + W['momentum_agent']) * 0.82
         
         if total_score >= threshold:
-            push_scan(f"🎯 {sym PASSED}: Skor {total_score:.2f} >= Threshold {threshold:.2f}. Eksekusi Buy!", "passed")
+            push_scan(f"🎯 {sym} PASSED: Skor {total_score:.2f} >= Threshold {threshold:.2f}. Eksekusi Buy!", "passed")
             try:
                 conviction_ratio = min(1.8, total_score / max(1.0, threshold))
                 safety_min = 2.20

@@ -8,7 +8,7 @@ import os
 
 # Konfigurasi Halaman & Tema Mode Malam
 st.set_page_config(
-    page_title="Optimized Quant Scalper",
+    page_title="Solana Exclusive Quant Scalper",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -32,7 +32,7 @@ st.markdown("""
     .agent-pipeline {
         background-color: #0d1117;
         border: 1px solid #30363d;
-        border-left: 4px solid #00FF7F;
+        border-left: 4px solid #14F195; /* Warna khas Solana */
         padding: 8px 12px;
         border-radius: 6px;
         font-family: monospace;
@@ -49,14 +49,14 @@ st.markdown("""
         margin-bottom: 6px;
     }
     .tag-agent {
-        color: #58a6ff;
+        color: #9945FF; /* Warna khas Solana Purple */
         font-weight: bold;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# File Penyimpanan Memori AI & Strategi Terbaik Permanen
-MEMORY_FILE = "ai_memory_store.json"
+# File Penyimpanan Memori AI Permanen khusus SOL
+MEMORY_FILE = "sol_ai_memory_store.json"
 
 def load_ai_memory():
     if os.path.exists(MEMORY_FILE):
@@ -72,7 +72,7 @@ def save_ai_memory(memory_data):
         with open(MEMORY_FILE, "w") as f:
             json.dump(memory_data, f)
     except Exception as e:
-        print(f"Gagal menyimpan memori strategi: {e}")
+        print(f"Gagal menyimpan memori: {e}")
 
 # Inisialisasi Exchange Bitget Live
 @st.cache_resource
@@ -99,13 +99,13 @@ except Exception as e:
     st.error(f"Gagal terhubung ke API Bitget: {e}")
     st.stop()
 
-# State Management & AI Strategy Memory Initialization
+# State Management & AI Memory Initialization
 if 'trade_history' not in st.session_state:
     st.session_state['trade_history'] = []
 if 'active_positions' not in st.session_state:
     st.session_state['active_positions'] = {}
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["Optimized Quant AI online. Lightweight history & PnL tracker active."]
+    st.session_state['swarm_logs'] = ["Solana Exclusive Quant AI online. Dedicated SOL scalper active."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = load_ai_memory()
 if 'consecutive_losses' not in st.session_state:
@@ -125,7 +125,7 @@ def add_swarm_log(agent_name, msg):
     if len(st.session_state['swarm_logs']) > 8:
         st.session_state['swarm_logs'].pop()
 
-# --- FUNGSI ANALISIS KUANTITATIF (RSI & EMA) ---
+# --- FUNGSI ANALISIS KUANTITATIF (RSI & EMA KHUSUS SOL) ---
 def compute_quant_indicators(exchange, symbol):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=25)
@@ -152,20 +152,20 @@ def compute_quant_indicators(exchange, symbol):
 
 # --- SIDEBAR: KONTROL START / STOP & EMERGENCY ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #00FF7F;'>🎛️ BOT POWER CONTROL</h3>", unsafe_allow_html=True)
-    st.markdown("Nyalakan bot untuk mengaktifkan Lightweight Quant Scalper.")
+    st.markdown("<h3 style='color: #14F195;'>🟣 SOLANA BOT CONTROL</h3>", unsafe_allow_html=True)
+    st.markdown("Fokus eksklusif scalping SOL/USDT dengan manajemen risiko ketat.")
     
     col_b1, col_b2 = st.columns(2)
     with col_b1:
-        if st.button("🚀 START BOT", use_container_width=True):
+        if st.button("🚀 START SOL", use_container_width=True):
             st.session_state['bot_active'] = True
-            add_swarm_log("System", "🚀 Bot diaktifkan. Memulai pemantauan pasar...")
+            add_swarm_log("System", "🚀 Solana Scalper diaktifkan. Memindai tren SOL...")
             st.rerun()
             
     with col_b2:
         if st.button("🛑 STOP / EXIT", use_container_width=True):
             st.session_state['bot_active'] = False
-            add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi posisi...")
+            add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi posisi SOL...")
             
             if st.session_state['active_positions']:
                 for s, p in list(st.session_state['active_positions'].items()):
@@ -175,7 +175,6 @@ with st.sidebar:
                         sell_amt = current_bal['free'].get(base_coin, p['amount'])
                         exchange.create_market_sell_order(s, sell_amt)
                         
-                        # Catat ke history dan batasi maksimal 5
                         st.session_state['trade_history'].insert(0, {
                             "Waktu": datetime.now().strftime("%H:%M:%S"),
                             "Token": s,
@@ -187,130 +186,100 @@ with st.sidebar:
                             st.session_state['trade_history'] = st.session_state['trade_history'][:5]
                             
                     except Exception as ex:
-                        add_swarm_log("System", f"Gagal jual {s}: {str(ex)}")
+                        add_swarm_log("System", f"Gagal jual SOL: {str(ex)}")
                 st.session_state['active_positions'] = {}
             st.rerun()
             
     st.markdown("---")
-    st.markdown("### 🛡️ Risk-Manager Status")
+    st.markdown("### 🛡️ SOL Risk Status")
     st.metric("Saldo Awal Acuan", f"${st.session_state['initial_balance']:.2f}")
     st.metric("Loss Streak", f"{st.session_state['consecutive_losses']} / 3 (Circuit Breaker)")
     st.metric("Win Streak", f"{st.session_state['consecutive_wins']} / 3")
 
-st.markdown("<h2 style='color: #00FF7F;'>⚡ LIGHTWEIGHT QUANT SCALPER</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #14F195;'>⚡ SOLANA EXCLUSIVE QUANT SCALPER</h2>", unsafe_allow_html=True)
 status_indicator = "🟢 AKTIF (RUNNING)" if st.session_state['bot_active'] else "🔴 BERHENTI (PAUSED)"
-st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Max 5 History Logs | Strict PnL Tracking</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Target: SOL/USDT | Instant TP (+0.15%) & Tight SL (-0.25%)</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 losses_count = st.session_state['consecutive_losses']
 
 if losses_count >= 3 and st.session_state['bot_active']:
     st.session_state['bot_active'] = False
-    add_swarm_log("Risk-Manager", "🚨 CIRCUIT BREAKER TRIGGERED! 3x Loss beruntun terdeteksi. Bot otomatis dipause.")
+    add_swarm_log("Risk-Manager", "🚨 CIRCUIT BREAKER TRIGGERED! 3x Loss beruntun pada SOL. Bot dipause.")
 
 if losses_count >= 2:
     mode_status = "🛡️ DEEP RISK SHIELD"
-    min_volume_filter = 150000
 else:
-    mode_status = "⚡ OPTIMAL RISK MODE"
-    min_volume_filter = 20000
+    mode_status = "⚡ SOLANA MOMENTUM MODE"
 
 active_count = len(st.session_state['active_positions'])
-
-if usdt_free < 4.0:
-    max_allowed_positions = 1
-elif usdt_free < 8.0:
-    max_allowed_positions = 2
-else:
-    max_allowed_positions = 4
 
 init_bal = st.session_state['initial_balance']
 pnl_dollar = total_eq - init_bal
 pnl_pct = ((total_eq - init_bal) / init_bal) * 100 if init_bal > 0 else 0.0
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Risk Status", mode_status, f"Loss Streak: {losses_count}")
+c1.metric("Strategy", "SOL-Exclusive", mode_status)
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}% (${pnl_dollar:+,.2f})")
-c3.metric("Active Positions", f"{active_count} / {max_allowed_positions}", "Auto-Scaled")
-c4.metric("Target Scalp", "+0.15% TP", "Ultra-Tight SL (-0.25%)")
+c3.metric("Active SOL Position", f"{active_count} / 1", "Dedicated Pool")
+c4.metric("Target Scalp", "+0.15% TP", "Tight SL (-0.25%)")
 c5.metric("Cadence", "1 Second", "Real-Time")
 
 st.markdown("---")
 
-# LOOP LIVE TRADING UTAMA (CADENCE 1 DETIK)
+# LOOP LIVE TRADING UTAMA (FOKUS 100% PADA SOL/USDT - 1 DETIK)
 @st.fragment(run_every=1)
-def run_optimized_loop():
+def run_solana_exclusive_loop():
     if not st.session_state.get('bot_active', False):
         return
 
+    SOL_SYMBOL = 'SOL/USDT'
+
     try:
-        all_tickers = exchange.fetch_tickers()
-        all_usdt_coins = [sym for sym in all_tickers.keys() if sym.endswith('/USDT')]
+        ticker = exchange.fetch_ticker(SOL_SYMBOL)
+        current_price = ticker.get('last')
         
-        # === 1. FASE SCANNING & ENTRY (1 DETIK) ===
-        if active_count < max_allowed_positions and usdt_free > 1.0:
-            existing_syms = list(st.session_state['active_positions'].keys())
-            major_coins = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
-            
-            pre_candidates = []
-            for sym in all_usdt_coins:
-                if sym not in existing_syms:
-                    data = all_tickers[sym]
-                    if data.get('last') and data.get('quoteVolume'):
-                        vol = float(data['quoteVolume'])
-                        chg = data.get('percentage', 0)
-                        if vol > min_volume_filter:
-                            is_major = sym in major_coins
-                            priority_score = 100 if is_major else chg
-                            pre_candidates.append({'symbol': sym, 'score': priority_score, 'price': float(data['last'])})
-            
-            pre_candidates = sorted(pre_candidates, key=lambda x: x['score'], reverse=True)[:5]
-            
-            selected_target = None
-            for cand in pre_candidates:
-                sym = cand['symbol']
-                rsi, ema, uptrend = compute_quant_indicators(exchange, sym)
-                if rsi is not None and uptrend and (42 <= rsi <= 68):
-                    selected_target = {'symbol': sym, 'price': cand['price'], 'rsi': rsi}
-                    break
-            
-            if selected_target:
-                sym_to_buy = selected_target['symbol']
-                price_to_buy = selected_target['price']
-                
-                add_swarm_log("Sentinel-X", f"Validated Asset: {sym_to_buy} (RSI: {selected_target['rsi']:.1f}).")
+        if not current_price:
+            return
 
-                if sym_to_buy not in st.session_state['ai_memory']:
-                    st.session_state['ai_memory'][sym_to_buy] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
+        # === 1. FASE SCANNING & ENTRY KHUSUS SOLANA (1 DETIK) ===
+        if active_count == 0 and usdt_free > 1.0:
+            rsi, ema, uptrend = compute_quant_indicators(exchange, SOL_SYMBOL)
+            
+            # Deteksi tren SOL: Harus uptrend (EMA9 > EMA21) dan RSI sehat (40 - 68)
+            if rsi is not None and uptrend and (40 <= rsi <= 68):
+                add_swarm_log("Sentinel-X", f"SOL Uptrend Confirmed! RSI: {rsi:.1f}, Price: ${current_price:.2f}")
 
-                market_info = exchange.market(sym_to_buy)
+                if SOL_SYMBOL not in st.session_state['ai_memory']:
+                    st.session_state['ai_memory'][SOL_SYMBOL] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
+
+                market_info = exchange.market(SOL_SYMBOL)
                 min_cost = market_info.get('limits', {}).get('cost', {}).get('min', 1.0)
                 
-                slots_left = max(1, max_allowed_positions - active_count)
-                calculated_allocation = usdt_free / slots_left
-                order_allocation = max(min_cost, round(calculated_allocation * 0.95, 2))
+                # Gunakan seluruh atau sebagian besar saldo bebas untuk nge-scalp SOL secara maksimal
+                order_allocation = max(min_cost, round(usdt_free * 0.98, 2))
 
                 if usdt_free >= order_allocation:
                     buy_params = {'createMarketBuyOrderRequiresPrice': False}
-                    exchange.create_market_buy_order(sym_to_buy, order_allocation, buy_params)
-                    est_coin_amount = order_allocation / price_to_buy
+                    exchange.create_market_buy_order(SOL_SYMBOL, order_allocation, buy_params)
+                    est_coin_amount = order_allocation / current_price
                     
-                    st.session_state['active_positions'][sym_to_buy] = {
-                        'entry': price_to_buy,
+                    st.session_state['active_positions'][SOL_SYMBOL] = {
+                        'entry': current_price,
                         'amount': est_coin_amount,
                         'allocation': order_allocation,
-                        'target': price_to_buy * 1.0015,  # TP +0.15%
-                        'sl': price_to_buy * 0.9975       # TIGHT SL -0.25%
+                        'target': current_price * 1.0015,  # TP tipis +0.15% langsung ambil profit
+                        'sl': current_price * 0.9975       # SL ketat -0.25% langsung cut loss
                     }
                     
-                    add_swarm_log("Risk-Manager", f"🛡️ SL -0.25%, TP +0.15% locked for {sym_to_buy}.")
+                    add_swarm_log("Risk-Manager", f"🛡️ SOL BUY Executed at ${current_price:.2f} (${order_allocation:.2f}). TP +0.15%, SL -0.25%.")
                     
-                    # Tambah ke riwayat (Maksimal 5 order terakhir)
+                    # Riwayat (Maksimal 5 order)
                     st.session_state['trade_history'].insert(0, {
                         "Waktu": datetime.now().strftime("%H:%M:%S"),
-                        "Token": sym_to_buy,
+                        "Token": "SOL/USDT",
                         "Aksi": f"BUY (${order_allocation:.2f})",
-                        "Harga": f"${price_to_buy:.5f}",
+                        "Harga": f"${current_price:.2f}",
                         "Hasil": "Posisi Aktif"
                     })
                     if len(st.session_state['trade_history']) > 5:
@@ -318,101 +287,95 @@ def run_optimized_loop():
                         
                     st.rerun()
 
-        # === 2. FASE PANTAU DAN KELUAR AMAN (1 DETIK) ===
+        # === 2. FASE PANTAU DAN KELUAR CEPAT (1 DETIK) ===
         if st.session_state['active_positions']:
-            for sym, pos in list(st.session_state['active_positions'].items()):
-                if sym in all_tickers and all_tickers[sym].get('last'):
-                    current_price = float(all_tickers[sym]['last'])
-                    pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
+            pos = st.session_state['active_positions'].get(SOL_SYMBOL)
+            if pos and current_price:
+                pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
+                
+                # Break-Even Shield: Jika naik +0.08%, amankan SL ke harga entry
+                if pnl_pct >= 0.08 and pos['sl'] < pos['entry']:
+                    pos['sl'] = pos['entry']
+                    add_swarm_log("Risk-Manager", "🔒 Break-Even Shield activated for SOL! Risk-free locked.")
+
+                if current_price >= pos['target'] or current_price <= pos['sl']:
+                    action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
+                    add_swarm_log("Guardian-Risk", f"SOL hit {action_type} ({pnl_pct:+.2f}%). Closing instantly...")
                     
-                    if pnl_pct >= 0.08 and pos['sl'] < pos['entry']:
-                        pos['sl'] = pos['entry']
-                        add_swarm_log("Risk-Manager", f"🔒 Break-Even Shield activated for {sym}!")
+                    base_coin = 'SOL'
+                    try:
+                        current_bal = exchange.fetch_balance()
+                        actual_coin_to_sell = current_bal['free'].get(base_coin, pos['amount'] * 0.999)
+                    except:
+                        actual_coin_to_sell = pos['amount'] * 0.999 
 
-                    if current_price >= pos['target'] or current_price <= pos['sl']:
-                        action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
-                        add_swarm_log("Guardian-Risk", f"{sym} triggered {action_type} ({pnl_pct:+.2f}%). Exiting...")
+                    exchange.create_market_sell_order(SOL_SYMBOL, actual_coin_to_sell)
+                    
+                    # Hitung PnL dalam USD
+                    trade_pnl_usd = pos['allocation'] * (pnl_pct / 100)
+                    
+                    mem_update = st.session_state['ai_memory'][SOL_SYMBOL]
+                    
+                    if action_type == "TAKE PROFIT":
+                        mem_update['wins'] += 1
+                        mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
+                        if st.session_state['consecutive_losses'] > 0:
+                            st.session_state['consecutive_losses'] -= 1
                         
-                        base_coin = sym.split('/')[0]
-                        try:
-                            current_bal = exchange.fetch_balance()
-                            actual_coin_to_sell = current_bal['free'].get(base_coin, pos['amount'] * 0.999)
-                        except:
-                            actual_coin_to_sell = pos['amount'] * 0.999 
+                        st.session_state['consecutive_wins'] += 1
+                        add_swarm_log("Nexus-Learner", f"🎯 SOL PROFIT LOCKED! +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)")
+                        result_text = f"Profit: +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)"
+                    else:
+                        mem_update['losses'] += 1
+                        mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
+                        st.session_state['consecutive_losses'] += 1
+                        st.session_state['consecutive_wins'] = 0
+                        add_swarm_log("Risk-Manager", f"🛡️ SOL LOSS CUT. -${abs(trade_pnl_usd):.2f} ({pnl_pct:+.2f}%)")
+                        result_text = f"Loss: -${abs(trade_pnl_usd):.2f} ({pnl_pct:+.2f}%)"
 
-                        exchange.create_market_sell_order(sym, actual_coin_to_sell)
-                        
-                        # Hitung Profit/Loss dalam USD
-                        trade_pnl_usd = pos['allocation'] * (pnl_pct / 100)
-                        
-                        if sym not in st.session_state['ai_memory']:
-                            st.session_state['ai_memory'][sym] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
-                        mem_update = st.session_state['ai_memory'][sym]
-                        
-                        if action_type == "TAKE PROFIT":
-                            mem_update['wins'] += 1
-                            mem_update['confidence'] = min(99.0, mem_update['confidence'] + 15.0)
-                            if st.session_state['consecutive_losses'] > 0:
-                                st.session_state['consecutive_losses'] -= 1
-                            
-                            st.session_state['consecutive_wins'] += 1
-                            add_swarm_log("Nexus-Learner", f"🎯 PROFIT SECURED ({sym})! +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)")
-                            result_text = f"Profit: +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)"
-                        else:
-                            mem_update['losses'] += 1
-                            mem_update['confidence'] = max(5.0, mem_update['confidence'] - 20.0)
-                            st.session_state['consecutive_losses'] += 1
-                            st.session_state['consecutive_wins'] = 0
-                            add_swarm_log("Risk-Manager", f"🛡️ LOSS CUT ({sym}). -${abs(trade_pnl_usd):.2f} ({pnl_pct:+.2f}%)")
-                            result_text = f"Loss: -${abs(trade_pnl_usd):.2f} ({pnl_pct:+.2f}%)"
+                    save_ai_memory(st.session_state['ai_memory'])
 
-                        save_ai_memory(st.session_state['ai_memory'])
-
-                        # Masukkan ke riwayat & batasi hanya 5 order terakhir
-                        st.session_state['trade_history'].insert(0, {
-                            "Waktu": datetime.now().strftime("%H:%M:%S"),
-                            "Token": sym,
-                            "Aksi": action_type,
-                            "Harga": f"${current_price:.5f}",
-                            "Hasil": result_text
-                        })
-                        if len(st.session_state['trade_history']) > 5:
-                            st.session_state['trade_history'] = st.session_state['trade_history'][:5]
-                        
-                        del st.session_state['active_positions'][sym]
-                        st.rerun()
+                    # Masukkan ke riwayat (Maks 5 order)
+                    st.session_state['trade_history'].insert(0, {
+                        "Waktu": datetime.now().strftime("%H:%M:%S"),
+                        "Token": "SOL/USDT",
+                        "Aksi": action_type,
+                        "Harga": f"${current_price:.2f}",
+                        "Hasil": result_text
+                    })
+                    if len(st.session_state['trade_history']) > 5:
+                        st.session_state['trade_history'] = st.session_state['trade_history'][:5]
+                    
+                    del st.session_state['active_positions'][SOL_SYMBOL]
+                    st.rerun()
 
     except Exception as e:
-        add_swarm_log("System", f"Loop Error: {str(e)}")
+        add_swarm_log("System", f"SOL Loop Error: {str(e)}")
 
     # === LAYOUT TAMPILAN ===
     col_left, col_right = st.columns([1.5, 1])
     
     with col_left:
-        st.subheader("📋 Riwayat 5 Order Terakhir")
+        st.subheader("📋 Riwayat 5 Order SOL Terakhir")
         if st.session_state['trade_history']:
             df_hist = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(df_hist, width='stretch', hide_index=True)
         else:
-            st.info("Klik tombol **START BOT** di sidebar untuk mulai trading...")
+            st.info("Klik tombol **START SOL** di sidebar untuk mulai scalping Solana...")
             
     with col_right:
-        st.subheader("🤖 AI Risk Management Stream")
+        st.subheader("🤖 AI Solana Stream")
         for log_html in st.session_state['swarm_logs']:
             st.markdown(log_html, unsafe_allow_html=True)
             
         st.markdown("---")
-        st.subheader("🧠 Learned Strategy Pool")
-        if st.session_state['ai_memory']:
-            sorted_mem = sorted(st.session_state['ai_memory'].items(), key=lambda x: x[1]['confidence'], reverse=True)
-            for s, m in sorted_mem[:4]:
-                st.markdown(
-                    f'<div class="learning-card">'
-                    f'<b>{s}</b> | Score: <b>{m["confidence"]:.1f}%</b> | W/L: {m["wins"]}/{m["losses"]}'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-        else:
-            st.info("Risk-Manager AI aktif mengawasi ketat setiap transaksi...")
+        st.subheader("🧠 SOL Strategy Pool")
+        sol_mem = st.session_state['ai_memory'].get(SOL_SYMBOL, {'wins': 0, 'losses': 0, 'confidence': 50.0})
+        st.markdown(
+            f'<div class="learning-card">'
+            f'<b>SOL/USDT</b> | Score: <b>{sol_mem["confidence"]:.1f}%</b> | W/L: {sol_mem["wins"]}/{sol_mem["losses"]}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
-run_optimized_loop()
+run_solana_exclusive_loop()

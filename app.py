@@ -8,7 +8,7 @@ import json
 import os
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v10.1 (Continuous)", 
+    page_title="Deep AI Swing Pro v11 (Self-Learning)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -29,7 +29,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-MEMORY_FILE = "ai_deep_autonomous_v10.json"
+MEMORY_FILE = "ai_deep_autonomous_v11.json"
 WITA = pytz.timezone('Asia/Makassar')
 
 def get_wita_time():
@@ -167,22 +167,26 @@ def analyze_coin_native(symbol):
     except Exception as e: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v10.1")
-    st.write("Mode: **Continuous Scanner** ⚡")
+    st.title("🧠 Deep AI Brain v11")
+    st.write("Mode: **Self-Learning RL** ⚡")
     macro_status, macro_score = scan_global_market_native()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("V10.1 Continuous Scan Aktif! Memindai pasar tanpa henti.", "system")
+        push_log("V11 Self-Learning AI Aktif! Siap belajar dari market.", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
         push_log("Sistem AI Halted.", "warn")
         st.rerun()
+        
+    st.markdown("---")
+    st.markdown("**🧠 Bobot AI Saat Ini:**")
+    st.code(json.dumps(st.session_state['ai_weights'], indent=2))
 
-st.header("⚡ AI Swing Pro (Continuous Telemetry)")
+st.header("⚡ AI Swing Pro (Reinforcement Learning)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -198,7 +202,6 @@ with col_right:
     st.markdown("**🔍 Live Matrix Scanner (Real-Time)**")
     scan_container = st.empty()
 
-# DI SINI KUNCI PERUBAHANNYA: run_every=3 (Detik), membuat bot memindai TERUS-MENERUS
 @st.fragment(run_every=3)
 def autonomous_trading_loop():
     if not st.session_state['is_running']: 
@@ -210,21 +213,35 @@ def autonomous_trading_loop():
     WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT', 'PEPE/USDT', 'DOGE/USDT', 'LINK/USDT', 'AVAX/USDT']
     
     macro_status, macro_score = scan_global_market_native()
-    push_scan(f"🔄 Continuous Scan... | Makro: {macro_status}", "heartbeat")
+    push_scan(f"🔄 Scanning... | Makro: {macro_status}", "heartbeat")
     scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
     
-    # 1. AI EXIT MANAGER
+    W = st.session_state['ai_weights']
+    
+    # ==========================================
+    # 1. AI EXIT MANAGER & REINFORCEMENT LEARNING
+    # ==========================================
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:
             current_price = float(exchange.fetch_ticker(sym)['last'])
             pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             
-            if pnl_pct >= 1.2 and not pos.get('trailing_breakeven_active', False):
-                pos['sl'] = pos['entry']
+            # Dynamic Trailing & Take Profit Berbasis Volatilitas (ATR)
+            atr_pct = pos.get('atr_pct', 2.0)
+            
+            # Jika ATR tinggi (liar), biarkan profit berlari sampai 2x ATR. Jika rendah, ambil di 1.5x ATR
+            target_profit_pct = max(2.0, atr_pct * 1.5)
+            trailing_trigger_pct = max(1.0, atr_pct * 0.8)
+            
+            dynamic_tp = pos['entry'] * (1 + (target_profit_pct / 100))
+            
+            # Mengamankan posisi (Break-even + 0.5% untuk bayar fee) jika harga sudah naik melebihi trigger
+            if pnl_pct >= trailing_trigger_pct and not pos.get('trailing_breakeven_active', False):
+                pos['sl'] = pos['entry'] * 1.005 
                 pos['trailing_breakeven_active'] = True
-                push_log(f"🛡️ TRAILING STOP {sym}: Profit +{pnl_pct:.2f}%! SL diamankan.", "warn")
+                push_log(f"🛡️ AUTO-LOCK {sym}: SL diamankan +0.5% (Aman dari Loss).", "warn")
 
-            dynamic_tp = pos['entry'] * 1.04 if macro_score > 0 else pos['entry'] * 1.02
+            # Eksekusi Sell jika kena Target Profit atau kena SL (Stop Loss)
             if current_price >= dynamic_tp or current_price <= pos['sl']:
                 is_win = pnl_pct > 0.1 
                 reason = "TAKE PROFIT" if is_win else "STOP LOSS"
@@ -232,29 +249,38 @@ def autonomous_trading_loop():
                 exchange.create_market_sell_order(sym, sell_amt)
                 
                 pnl_usdt = pos['alloc'] * (pnl_pct / 100)
-                W = st.session_state['ai_weights']
                 
+                # Sesi Belajar (Reinforcement Learning)
                 if is_win:
                     W['win_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
-                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%)", "profit")
+                    # REWARD: Naikkan bobot agen yang menyuruh beli
+                    for agent_name, agent_vote in pos['agents'].items():
+                        if agent_vote > 1.0: # Jika agen tersebut sangat yakin saat beli
+                            W[f'{agent_name}_agent'] = round(min(2.5, W[f'{agent_name}_agent'] + 0.05), 2)
+                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} | 🧠 AI Belajar (Bobot Naik)!", "profit")
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
-                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%)", "loss")
+                    # PUNISHMENT: Turunkan bobot agen yang memberikan sinyal palsu
+                    for agent_name, agent_vote in pos['agents'].items():
+                        if agent_vote > 1.0:
+                            W[f'{agent_name}_agent'] = round(max(0.5, W[f'{agent_name}_agent'] - 0.05), 2)
+                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} | 🧠 AI Belajar (Bobot Turun).", "loss")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
                 st.rerun()
         except: pass
 
+    # ==========================================
     # 2. AI LIVE MATRIX SCANNER
+    # ==========================================
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']: continue
             
         data = analyze_coin_native(sym)
-        if data is None: 
-            continue
+        if data is None: continue
         
         rsi, close_price, atr_pct = data['rsi'], data['close'], data['atr_pct']
         
@@ -263,13 +289,11 @@ def autonomous_trading_loop():
             scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
             continue 
             
-        W = st.session_state['ai_weights']
-        vote_global = macro_score 
         vote_local_trend = 1.5 if (close_price > data['ema20'] and data['ema20'] > data['ema50']) else 0.5
         vote_momentum = 1.5 if (40 <= rsi <= 68 and data['macd_growth']) else 0.0 
         vote_volatility = 1.3 if close_price <= data['bb_lower'] * 1.02 else 0.5
         
-        total_score = (vote_global) + (vote_local_trend * W['trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_volatility * W['volatility_agent'])
+        total_score = (macro_score) + (vote_local_trend * W['trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_volatility * W['volatility_agent'])
         threshold = 3.8
         
         push_scan(f"Eval {sym} | RSI: {rsi:.1f} | ATR: {atr_pct:.1f}% | Score: {total_score:.2f}", "info")
@@ -282,17 +306,25 @@ def autonomous_trading_loop():
                 scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
                 continue
                 
-            push_scan(f"Verdict {sym} -> 🚀 ULTRA-CORE APPROVED!", "passed")
+            push_scan(f"Verdict {sym} -> 🚀 AI APPROVED!", "passed")
             scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
             try:
                 alloc = max(2.20, round(usdt_free * 0.45, 2))
                 if alloc > usdt_free * 0.95: alloc = round(usdt_free * 0.95, 2)
                 
                 exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
+                
+                # Simpan histori agen mana yang nyuruh beli untuk evaluasi nanti
                 st.session_state['active_trades'][sym] = {
                     'entry': close_price, 'qty': alloc / close_price, 'alloc': alloc,
                     'sl': close_price * 0.962, 'time': now_wita.isoformat(),
-                    'trailing_breakeven_active': False
+                    'trailing_breakeven_active': False,
+                    'atr_pct': atr_pct,
+                    'agents': {
+                        'trend': vote_local_trend,
+                        'momentum': vote_momentum,
+                        'volatility': vote_volatility
+                    }
                 }
                 push_log(f"🎯 EXECUTE BUY {sym} @ {close_price:.4f} | Size: ${alloc:.2f}", "system")
                 st.rerun()

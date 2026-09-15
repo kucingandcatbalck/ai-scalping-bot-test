@@ -7,29 +7,30 @@ import pytz
 import json
 import os
 
-# Konfigurasi Halaman & Tema Terminal Institusional
+# Konfigurasi Halaman & Tema Terminal Institusional AI (32-Day Autonomous Mode)
 st.set_page_config(
-    page_title="Deep AI Swing Pro (Dynamic Compound)", 
+    page_title="Deep AI Swing Pro v4.0 (Autonomous)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
 
 st.markdown("""
     <style>
-    .main { background-color: #05070a; color: #c9d1d9; }
+    .main { background-color: #030508; color: #c9d1d9; }
     div.stMetric { background-color: #0d1117; padding: 15px; border-radius: 8px; border: 1px solid #30363d; border-left: 4px solid #00FF7F; }
     div.stMetric label { color: #8b949e !important; font-size: 13px; font-weight: bold; }
-    .log-container { background-color: #010409; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    .log-container { background-color: #010409; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 450px; overflow-y: auto; font-family: monospace; font-size: 12px; }
     .log-line { border-bottom: 1px solid #21262d; padding: 6px 0; }
     .c-time { color: #8b949e; }
     .c-system { color: #58a6ff; font-weight: bold; }
     .c-profit { color: #3fb950; font-weight: bold; }
     .c-loss { color: #f85149; font-weight: bold; }
     .c-warn { color: #f2cc60; font-weight: bold; }
+    .c-trail { color: #d2a8ff; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-MEMORY_FILE = "ai_deep_ensemble_v2.json"
+MEMORY_FILE = "ai_deep_autonomous_v4.json"
 WITA = pytz.timezone('Asia/Makassar')
 
 def get_wita_time():
@@ -44,7 +45,8 @@ def load_ai_weights():
         'volume_whale_agent': 1.0,
         'win_history': 0,
         'loss_history': 0,
-        'total_profit_usdt': 0.0
+        'total_profit_usdt': 0.0,
+        'trailing_activations': 0
     }
     if os.path.exists(MEMORY_FILE):
         try:
@@ -103,10 +105,11 @@ def push_log(msg, ltype="system"):
     if ltype == "profit": color = "c-profit"
     elif ltype == "loss": color = "c-loss"
     elif ltype == "warn": color = "c-warn"
+    elif ltype == "trail": color = "c-trail"
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
-    if len(st.session_state['logs']) > 100: st.session_state['logs'].pop()
+    if len(st.session_state['logs']) > 150: st.session_state['logs'].pop()
 
-# --- AI AGENT 1: GLOBAL MARKET SCANNER (BTC) ---
+# --- AI AGENT 1: GLOBAL MARKET SCANNER (BTC 1H & 4H) ---
 @st.cache_data(ttl=300) 
 def scan_global_market():
     try:
@@ -127,39 +130,47 @@ def scan_global_market():
             return "KONSOLIDASI ⚖️", 0.0
     except: return "UNKNOWN", 0.0
 
-# --- AI AGENT 2-5: DEEP ALTCOIN SCANNER ---
+# --- AI AGENT 2-6: DEEP MULTI-TIMEFRAME ALTCOIN SCANNER ---
 @st.cache_data(ttl=60)
 def fetch_deep_indicators(symbol):
     try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=150)
-        df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
+        # Data 1H untuk eksekusi presisi
+        ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=150)
+        df_1h = pd.DataFrame(ohlcv_1h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
+        df_1h['ema50'] = df_1h['close'].ewm(span=50).mean()
         
-        df['ema50'] = df['close'].ewm(span=50).mean()
-        
-        delta = df['close'].diff()
+        delta = df_1h['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
-        df['rsi'] = 100 - (100 / (1 + rs))
+        df_1h['rsi'] = 100 - (100 / (1 + rs))
         
-        df['bb_mid'] = df['close'].rolling(window=20).mean()
-        df['bb_std'] = df['close'].rolling(window=20).std()
-        df['bb_lower'] = df['bb_mid'] - (df['bb_std'] * 2) 
+        df_1h['bb_mid'] = df_1h['close'].rolling(window=20).mean()
+        df_1h['bb_std'] = df_1h['close'].rolling(window=20).std()
+        df_1h['bb_lower'] = df_1h['bb_mid'] - (df_1h['bb_std'] * 2) 
+        df_1h['vol_sma20'] = df_1h['vol'].rolling(window=20).mean()
         
-        df['vol_sma20'] = df['vol'].rolling(window=20).mean()
-        return df.iloc[-1]
+        # Konfirmasi Tren 4H (Multi-Timeframe Confluence)
+        ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=30)
+        df_4h = pd.DataFrame(ohlcv_4h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
+        df_4h['ema20'] = df_4h['close'].ewm(span=20).mean()
+        is_4h_uptrend = df_4h['close'].iloc[-1] > df_4h['ema20'].iloc[-1]
+        
+        res = df_1h.iloc[-1].to_dict()
+        res['is_4h_uptrend'] = is_4h_uptrend
+        return res
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v2.0")
-    st.write("Mode: **Dynamic Compound Sizing**")
+    st.title("🧠 Deep AI Brain v4.0")
+    st.write("Mode: **32-Day Autonomous Persistence**")
     
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Global:** {macro_status}")
     
-    if st.button("▶️ AKTIFKAN AI", use_container_width=True):
+    if st.button("▶️ AKTIFKAN AUTONOMOUS AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("Neural Network Diaktifkan dengan Dynamic Sizing...", "system")
+        push_log("Autonomous AI Diaktifkan. Siap berjalan 24/7 di Redfinger...", "system")
         st.rerun()
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
@@ -167,40 +178,63 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("---")
-    st.markdown("**🧠 Status Bobot AI:**")
+    st.markdown("**🧠 Status Bobot Saraf Jangka Panjang:**")
     W = st.session_state['ai_weights']
     st.progress(min(1.0, W['global_trend_agent']/3.0), text=f"Global Market: {W['global_trend_agent']:.2f}")
     st.progress(min(1.0, W['local_trend_agent']/3.0), text=f"Local Trend: {W['local_trend_agent']:.2f}")
     st.progress(min(1.0, W['momentum_agent']/3.0), text=f"Momentum: {W['momentum_agent']:.2f}")
     st.progress(min(1.0, W['volume_whale_agent']/3.0), text=f"Whale Vol: {W['volume_whale_agent']:.2f}")
 
-st.header("⚡ AI Swing Pro (Dynamic Capital)")
+# Batas Maksimal Posisi Adaptif Otomatis Berdasarkan Saldo
+adaptive_max_pos = 1 if total_eq < 10.0 else (2 if total_eq < 25.0 else 3)
+
+st.header("⚡ AI Swing Pro (32-Day Autonomous Engine)")
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Status AI", "🟢 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
+c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
-c3.metric("Posisi Aktif", f"{len(st.session_state['active_trades'])} / 1 Max")
-c4.metric("Profit & Win-Rate", f"${W.get('total_profit_usdt', 0.0):.2f}", f"{W['win_history']}W / {W['loss_history']}L")
+c3.metric("Posisi Aktif", f"{len(st.session_state['active_trades'])} / {adaptive_max_pos} Max")
+c4.metric("Total Profit", f"${W.get('total_profit_usdt', 0.0):.2f}", f"{W['win_history']}W / {W['loss_history']}L")
 st.markdown("---")
 
 @st.fragment(run_every=60)
-def deep_learning_loop():
+def autonomous_trading_loop():
     if not st.session_state['is_running']: return
 
     WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'SUI/USDT', 'SOL/USDT']
     macro_status, macro_score = scan_global_market()
     
-    # 1. EXIT & SELF-LEARNING PHASE
+    current_total_eq = total_eq
+    max_pos_allowed = 1 if current_total_eq < 10.0 else (2 if current_total_eq < 25.0 else 2)
+    
+    # 1. EXIT & TRAILING STOP & SELF-LEARNING PHASE
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:
             current_price = float(exchange.fetch_ticker(sym)['last'])
             pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             time_held = datetime.now(WITA) - datetime.fromisoformat(pos['time'])
             
-            dynamic_tp = pos['entry'] * 1.04 if macro_score > 0 else pos['entry'] * 1.02
+            # --- DYNAMIC TRAILING STOP AGENT ---
+            # Jika profit menyentuh +1.8%, geser Stop Loss ke harga modal (Breakeven) untuk proteksi mutlak
+            if pnl_pct >= 1.8 and not pos.get('trailing_breakeven_active', False):
+                pos['sl'] = pos['entry'] # Geser SL ke harga beli awal
+                pos['trailing_breakeven_active'] = True
+                W_agent = st.session_state['ai_weights']
+                W_agent['trailing_activations'] += 1
+                save_ai_weights(W_agent)
+                push_log(f"🛡️ TRAILING STOP {sym}: Profit +{pnl_pct:.2f}% tercapai! SL digeser ke Breakeven (${pos['entry']:.4f}).", "trail")
+
+            # Jika profit makin tinggi (+3.5%), kunci trailing stop lebih ketat
+            if pnl_pct >= 3.5:
+                new_locked_sl = current_price * 0.985 # Kunci profit di bawah harga sekarang 1.5%
+                if new_locked_sl > pos['sl']:
+                    pos['sl'] = new_locked_sl
+            # -----------------------------------
+            
+            dynamic_tp = pos['entry'] * 1.045 if macro_score > 0 else pos['entry'] * 1.025
             
             if current_price >= dynamic_tp or current_price <= pos['sl'] or time_held.total_seconds() > 172800:
-                is_win = pnl_pct > 0.3 
-                reason = "TAKE PROFIT" if is_win else ("STOP LOSS" if current_price <= pos['sl'] else "TIME-STOP 48H")
+                is_win = pnl_pct > 0.15 
+                reason = "TAKE PROFIT" if is_win else ("STOP LOSS / TRAILING HIT" if current_price <= pos['sl'] else "TIME-STOP 48H")
                 
                 sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['qty'] * 0.995)
                 exchange.create_market_sell_order(sym, sell_amt)
@@ -213,22 +247,22 @@ def deep_learning_loop():
                     W['total_profit_usdt'] += pnl_usdt
                     W['global_trend_agent'] = min(3.0, W['global_trend_agent'] + 0.1)
                     W['local_trend_agent'] = min(3.0, W['local_trend_agent'] + (0.1 * pos['votes']['trend']))
-                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%). Saraf AI Diperkuat.", "profit")
+                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%). Bobot Saraf AI Ditingkatkan.", "profit")
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
                     W['local_trend_agent'] = max(0.5, W['local_trend_agent'] - (0.05 * pos['votes']['trend']))
-                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%). Evaluasi Ulang.", "loss")
+                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%). AI Menyesuaikan Parameter.", "loss")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
                 st.rerun()
         except Exception as e: pass
 
-    # 2. ENTRY PHASE (Dengan Dynamic Compound Capital Sizing Agent)
-    if len(st.session_state['active_trades']) < 1 and usdt_free >= 2.5:
+    # 2. ENTRY PHASE (Autonomous Multi-Timeframe Entry Engine)
+    if len(st.session_state['active_trades']) < max_pos_allowed and usdt_free >= 2.5:
         if macro_score < 0:
-            push_log(f"⚠️ BTC Sedang BEARISH. AI Menahan Diri Dari Pembelian.", "warn")
+            push_log(f"⚠️ BTC Global BEARISH. AI Memblokir Semua Sinyal Masuk.", "warn")
             return
             
         for sym in WATCHLIST:
@@ -237,9 +271,12 @@ def deep_learning_loop():
             data = fetch_deep_indicators(sym)
             if data is None: continue
             
+            # Filter tambahan: Wajib searah dengan tren makro 4H
+            if not data['is_4h_uptrend']: continue 
+            
             vote_global = macro_score 
             vote_trend = 1.0 if data['close'] > data['ema50'] else 0.0
-            vote_momentum = 1.0 if (40 <= data['rsi'] <= 60) else 0.0 
+            vote_momentum = 1.0 if (40 <= data['rsi'] <= 62) else 0.0 
             vote_volatility = 1.0 if data['close'] <= data['bb_lower'] * 1.02 else 0.0 
             vote_whale = 1.5 if data['vol'] > (data['vol_sma20'] * 1.8) else 0.0 
             
@@ -252,20 +289,19 @@ def deep_learning_loop():
                 (vote_whale * W['volume_whale_agent'])
             )
             
-            threshold = (W['global_trend_agent'] + W['local_trend_agent'] + W['momentum_agent']) * 0.85
+            threshold = (W['global_trend_agent'] + W['local_trend_agent'] + W['momentum_agent']) * 0.82
             
             if total_score >= threshold:
                 try:
-                    # --- DYNAMIC CAPITAL SIZING AGENT ---
-                    # Alokasi otomatis 50% dari saldo USDT bebas saat ini (Compound Growth)
-                    # Dijaga agar tidak di bawah batas minimum aman bursa ($2.20)
+                    # --- DYNAMIC COMPOUND & CONVICTION SIZING ---
+                    conviction_ratio = min(1.8, total_score / max(1.0, threshold))
                     safety_min = 2.20
-                    dynamic_pct = 0.50 
                     
-                    calculated_alloc = usdt_free * dynamic_pct
+                    calculated_alloc = (usdt_free / (max_pos_allowed - len(st.session_state['active_trades']))) * 0.50 * conviction_ratio
                     alloc = max(safety_min, round(calculated_alloc, 2))
-                    if alloc > usdt_free:
-                        alloc = round(usdt_free * 0.95, 2) # Cadangan sisa sedikit untuk fee
+                    
+                    if alloc > usdt_free * 0.95:
+                        alloc = round(usdt_free * 0.95, 2)
                     
                     exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
                     
@@ -273,18 +309,19 @@ def deep_learning_loop():
                         'entry': data['close'],
                         'qty': alloc / data['close'],
                         'alloc': alloc,
-                        'sl': data['close'] * 0.965, # Stop Loss 3.5%
+                        'sl': data['close'] * 0.965, # Stop Loss awal 3.5%
                         'time': datetime.now(WITA).isoformat(),
+                        'trailing_breakeven_active': False,
                         'votes': {'trend': vote_trend, 'momentum': vote_momentum}
                     }
-                    push_log(f"🎯 BUY {sym} @ {data['close']:.4f} | Size: ${alloc:.2f} (Dynamic) | Score: {total_score:.2f}", "system")
+                    push_log(f"🎯 AUTONOMOUS BUY {sym} @ {data['close']:.4f} | Size: ${alloc:.2f} | Score: {total_score:.2f}", "system")
                     st.rerun()
                     break
                 except Exception as e: pass
 
 c_log = st.container()
 with c_log:
-    st.markdown("**🧠 Live AI Neural Log & Keputusan Market**")
+    st.markdown("**🧠 32-Day Autonomous Neural Log & Telemetry**")
     st.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
 
-deep_learning_loop()
+autonomous_trading_loop()

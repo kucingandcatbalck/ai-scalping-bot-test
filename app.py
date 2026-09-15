@@ -100,7 +100,7 @@ with st.sidebar:
                     base_coin = s.split('/')[0]
                     sell_amt = exchange.fetch_balance()['free'].get(base_coin, p['amount'])
                     exchange.create_market_sell_order(s, sell_amt)
-                    st.session_state['trade_history'].insert(0, {"Profit (%)": "Halted"})
+                    st.session_state['trade_history'].insert(0, {"Koin": s, "Profit/Loss": "Halted"})
                 except: pass
             st.session_state['active_positions'] = {}
         st.rerun()
@@ -108,7 +108,7 @@ with st.sidebar:
 status_indicator = "🟢 RUNNING" if st.session_state['bot_active'] else "🔴 OFFLINE"
 active_count = len(st.session_state['active_positions'])
 
-# POSISI OTOMATIS MENGIKUTI MODAL: Setiap kelipatan $4 dari saldo bebas, slot koin bertambah (maksimal 10 posisi serentak)
+# Posisi dinamis mengikuti besar modal
 max_pos = max(1, min(10, int(usdt_free / 4)))
 
 pnl_pct = ((total_eq - st.session_state['initial_balance']) / st.session_state['initial_balance']) * 100 if st.session_state['initial_balance'] > 0 else 0.0
@@ -132,7 +132,6 @@ def run_unrestricted_loop():
             for sym, data in all_tickers.items():
                 if sym.endswith('/USDT') and sym not in st.session_state['active_positions']:
                     chg = float(data.get('percentage', 0))
-                    # Tanpa filter volume ketat, asal koin bergerak hijau langsung masuk radar
                     if chg > 0.0:
                         valid_coins.append({'symbol': sym, 'score': chg, 'price': float(data.get('last', 0))})
             
@@ -142,11 +141,9 @@ def run_unrestricted_loop():
                 price_now = valid_coins[0]['price']
                 
                 min_cost = exchange.market(top_coin).get('limits', {}).get('cost', {}).get('min', 2.0)
-                
-                # Alokasi modal dibagi rata ke slot posisi aktif berdasarkan besar modal
                 alloc = max(min_cost, round(usdt_free / max(1, max_pos - active_count) * 0.9, 2))
                 
-                tp_pct = 0.0035 # +0.35% (Target Bersih setelah fee)
+                tp_pct = 0.0035 # +0.35% Target Bersih
                 sl_pct = 0.0030 # -0.30%
 
                 if usdt_free >= alloc:
@@ -165,15 +162,14 @@ def run_unrestricted_loop():
                 ticker = exchange.fetch_ticker(sym)
                 current_price = float(ticker['last'])
                 pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
+                pnl_usd = pos['alloc'] * (pnl_pct / 100)
                 time_held = (datetime.now() - pos['entry_time']).total_seconds()
                 
-                # Trailing Lock Sederhana
                 if current_price > pos['highest_price']:
                     pos['highest_price'] = current_price
                     if pnl_pct >= 0.15: 
                         pos['sl'] = pos['entry'] * 1.001
 
-                # Keluar seketika saat TP, SL, atau waktu 15 detik habis
                 if current_price >= pos['target'] or current_price <= pos['sl'] or time_held >= 15:
                     try:
                         sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['amount'] * 0.999)
@@ -184,8 +180,9 @@ def run_unrestricted_loop():
                     if pnl_pct > 0.10: add_log(f"Profit {sym} ({pnl_pct:+.2f}%)")
                     else: add_log(f"Exit {sym} ({pnl_pct:+.2f}%)", "alert")
 
-                    # UI History: Hanya menampilkan persentase profit/loss
-                    st.session_state['trade_history'].insert(0, {"Profit (%)": f"{pnl_pct:+.2f}%"})
+                    # UI History: Hanya menampilkan Koin dan Profit/Loss (USD & Persentase) tanpa waktu
+                    result_str = f"${pnl_usd:+.2f} ({pnl_pct:+.2f}%)"
+                    st.session_state['trade_history'].insert(0, {"Koin": sym, "Profit/Loss": result_str})
                     st.session_state['trade_history'] = st.session_state['trade_history'][:5]
                     del st.session_state['active_positions'][sym]
                     st.rerun()

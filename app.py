@@ -6,9 +6,9 @@ from datetime import datetime
 import json
 import os
 
-# Konfigurasi Halaman & Tema Mode Malam
+# Konfigurasi Halaman & Tema Terminal Institusional
 st.set_page_config(
-    page_title="Solana Hyper-Scalper & Volume Compounding",
+    page_title="Ultimate Solana Quant Scalper",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -55,8 +55,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# File Penyimpanan Memori AI Permanen khusus SOL
-MEMORY_FILE = "sol_hyper_memory.json"
+# File Penyimpanan Memori AI Permanen Khusus Solana
+MEMORY_FILE = "sol_ultimate_ai_memory.json"
 
 def load_ai_memory():
     if os.path.exists(MEMORY_FILE):
@@ -105,7 +105,7 @@ if 'trade_history' not in st.session_state:
 if 'active_positions' not in st.session_state:
     st.session_state['active_positions'] = {}
 if 'swarm_logs' not in st.session_state:
-    st.session_state['swarm_logs'] = ["Solana Hyper-Scalper online. Dynamic volume scaling active."]
+    st.session_state['swarm_logs'] = ["Ultimate Solana Quant AI online. Multi-agent framework armed."]
 if 'ai_memory' not in st.session_state:
     st.session_state['ai_memory'] = load_ai_memory()
 if 'consecutive_losses' not in st.session_state:
@@ -125,47 +125,58 @@ def add_swarm_log(agent_name, msg):
     if len(st.session_state['swarm_logs']) > 8:
         st.session_state['swarm_logs'].pop()
 
-# --- ANALISIS KUANTITATIF KILAT (RSI & EMA SOL) ---
-def compute_quant_indicators(exchange, symbol):
+# --- KUANTITATIF TINGKAT LANJUT (EMA, RSI KILAT, & VOLATILITY VELOCITY) ---
+def compute_advanced_quant_model(exchange, symbol):
     try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=20)
-        if not ohlcv or len(ohlcv) < 12:
-            return None, None, False
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=25)
+        if not ohlcv or len(ohlcv) < 15:
+            return False, 50.0, 0.0
         
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        close_prices = df['close']
+        closes = df['close']
         
-        ema9 = close_prices.ewm(span=9, adjust=False).mean().iloc[-1]
-        ema21 = close_prices.ewm(span=21, adjust=False).mean().iloc[-1]
+        # EMA 9 & EMA 21 untuk arah tren mikro
+        ema9 = closes.ewm(span=9, adjust=False).mean().iloc[-1]
+        ema21 = closes.ewm(span=21, adjust=False).mean().iloc[-1]
         
-        delta = close_prices.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=10).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=10).mean()
+        # RSI Kilat (Periode 7)
+        delta = closes.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=7).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=7).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         current_rsi = rsi.iloc[-1]
         
-        is_uptrend = ema9 > ema21
-        return current_rsi, ema9, is_uptrend
+        # Volatility / Price Velocity (Kecepatan perubahan harga dalam 3 candle terakhir)
+        price_velocity = ((closes.iloc[-1] - closes.iloc[-3]) / closes.iloc[-3]) * 100
+        
+        # Logika Serok Cepat (Dip-Bounce): Harga baru saja koreksi dan candle terakhir memantul naik
+        is_dipping_and_bouncing = (closes.iloc[-2] < closes.iloc[-3]) and (closes.iloc[-1] > closes.iloc[-2])
+        is_healthy_rsi = 35 <= current_rsi <= 72
+        is_momentum_valid = (ema9 >= ema21) or is_dipping_and_bouncing
+        
+        should_enter = is_dipping_and_bouncing and is_healthy_rsi and is_momentum_valid
+        
+        return should_enter, current_rsi, price_velocity
     except Exception:
-        return None, None, False
+        return False, 50.0, 0.0
 
 # --- SIDEBAR: KONTROL START / STOP & EMERGENCY ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #14F195;'>🟣 SOLANA HYPER-BOT</h3>", unsafe_allow_html=True)
-    st.markdown("Scalping kilat SOL dengan volume modal yang otomatis bertambah seiring profit.")
+    st.markdown("<h3 style='color: #14F195;'>🟣 SOLANA MASTER BOT</h3>", unsafe_allow_html=True)
+    st.markdown("Algoritma Quant Tingkat Lanjut khusus Solana dengan Auto-Compounding & Risk Shield.")
     
     col_b1, col_b2 = st.columns(2)
     with col_b1:
-        if st.button("🚀 START HYPER", use_container_width=True):
+        if st.button("🚀 START MASTER", use_container_width=True):
             st.session_state['bot_active'] = True
-            add_swarm_log("System", "🚀 Solana Hyper-Scalper diaktifkan!")
+            add_swarm_log("System", "🚀 Master Quant Bot diaktifkan! Memindai momentum SOL...")
             st.rerun()
             
     with col_b2:
         if st.button("🛑 STOP / EXIT", use_container_width=True):
             st.session_state['bot_active'] = False
-            add_swarm_log("System", "🛑 Bot dihentikan. Menjual posisi SOL...")
+            add_swarm_log("System", "🛑 Bot dihentikan. Melikuidasi posisi aktif...")
             
             if st.session_state['active_positions']:
                 for s, p in list(st.session_state['active_positions'].items()):
@@ -191,26 +202,26 @@ with st.sidebar:
             st.rerun()
             
     st.markdown("---")
-    st.markdown("### 🛡️ Performance Status")
+    st.markdown("### 🛡️ System Status")
     st.metric("Saldo Awal Acuan", f"${st.session_state['initial_balance']:.2f}")
     st.metric("Loss Streak", f"{st.session_state['consecutive_losses']} / 3 (Circuit Breaker)")
     st.metric("Win Streak", f"{st.session_state['consecutive_wins']} / 3")
 
-st.markdown("<h2 style='color: #14F195;'>⚡ SOLANA HYPER-SCALPER & AUTO-COMPOUND</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color: #14F195;'>⚡ ULTIMATE SOLANA QUANT SCALPER</h2>", unsafe_allow_html=True)
 status_indicator = "🟢 AKTIF (RUNNING)" if st.session_state['bot_active'] else "🔴 BERHENTI (PAUSED)"
-st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Target: SOL/USDT | Micro-TP (+0.12%) | Auto-Scaling Volume</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #8b949e;'>Status Bot: <b>{status_indicator}</b> | Target: SOL/USDT | Micro-TP (+0.12%) | Strict SL (-0.20%) | Auto-Volume</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 losses_count = st.session_state['consecutive_losses']
 
 if losses_count >= 3 and st.session_state['bot_active']:
     st.session_state['bot_active'] = False
-    add_swarm_log("Risk-Manager", "🚨 CIRCUIT BREAKER TRIGGERED! 3x Loss beruntun pada SOL. Bot dipause.")
+    add_swarm_log("Risk-Manager", "🚨 CIRCUIT BREAKER TRIGGERED! 3x Loss beruntun terdeteksi. Bot dipause untuk pengamanan total.")
 
 if losses_count >= 2:
     mode_status = "🛡️ DEEP RISK SHIELD"
 else:
-    mode_status = "⚡ HYPER MOMENTUM MODE"
+    mode_status = "⚡ INSTITUTIONAL QUANT MODE"
 
 active_count = len(st.session_state['active_positions'])
 
@@ -219,17 +230,17 @@ pnl_dollar = total_eq - init_bal
 pnl_pct = ((total_eq - init_bal) / init_bal) * 100 if init_bal > 0 else 0.0
 
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Strategy", "SOL Hyper", mode_status)
+c1.metric("Strategy", "SOL Master", mode_status)
 c2.metric("Total Saldo", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}% (${pnl_dollar:+,.2f})")
-c3.metric("Active SOL Position", f"{active_count} / 1", "Dedicated Pool")
-c4.metric("Target Scalp", "+0.12% TP", "Tight SL (-0.22%)")
-c5.metric("Cadence", "1 Second", "Lightning Fast")
+c3.metric("Active Position", f"{active_count} / 1", "SOL Pool")
+c4.metric("Target Scalp", "+0.12% TP", "Tight SL (-0.20%)")
+c5.metric("Cadence", "1 Second", "High-Frequency")
 
 st.markdown("---")
 
-# LOOP LIVE TRADING UTAMA (FOKUS SOL/USDT - 1 DETIK DENGAN AUTO-SCALING VOLUME)
+# LOOP LIVE TRADING UTAMA (1 DETIK DENGAN QUANT MODEL & AUTO-COMPOUNDING)
 @st.fragment(run_every=1)
-def run_solana_hyper_loop():
+def run_ultimate_quant_loop():
     if not st.session_state.get('bot_active', False):
         return
 
@@ -242,12 +253,12 @@ def run_solana_hyper_loop():
         if not current_price:
             return
 
-        # === 1. FASE SCANNING & AUTO-SCALING ENTRY (1 DETIK) ===
+        # === 1. FASE SCANNING & QUANT ENTRY (1 DETIK) ===
         if active_count == 0 and usdt_free > 1.0:
-            rsi, ema, uptrend = compute_quant_indicators(exchange, SOL_SYMBOL)
+            should_enter, rsi_val, velocity = compute_advanced_quant_model(exchange, SOL_SYMBOL)
             
-            if rsi is not None and uptrend and (38 <= rsi <= 70):
-                add_swarm_log("Sentinel-X", f"SOL Hyper-Signal! RSI: {rsi:.1f}, Price: ${current_price:.2f}")
+            if should_enter:
+                add_swarm_log("Sentinel-X", f"Quant Dip-Bounce Confirmed! RSI: {rsi_val:.1f}, Velocity: {velocity:+.2f}%, Price: ${current_price:.2f}")
 
                 if SOL_SYMBOL not in st.session_state['ai_memory']:
                     st.session_state['ai_memory'][SOL_SYMBOL] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
@@ -255,12 +266,10 @@ def run_solana_hyper_loop():
                 market_info = exchange.market(SOL_SYMBOL)
                 min_cost = market_info.get('limits', {}).get('cost', {}).get('min', 1.0)
                 
-                # --- AUTO-SCALING VOLUME LOGIC ---
-                # Volume modal trade otomatis naik seiring pertumbuhan total saldo (compounding)
+                # --- DYNAMIC VOLUME COMPOUNDING LOGIC ---
                 equity_growth = total_eq / init_bal
                 if equity_growth > 1.0:
-                    # Alokasi bertambah proporsional mengikuti pertumbuhan profit saldo
-                    scaling_factor = min(0.99, 0.95 + ((equity_growth - 1.0) * 0.5))
+                    scaling_factor = min(0.99, 0.95 + ((equity_growth - 1.0) * 0.6))
                 else:
                     scaling_factor = 0.95
                 
@@ -271,16 +280,15 @@ def run_solana_hyper_loop():
                     exchange.create_market_buy_order(SOL_SYMBOL, order_allocation, buy_params)
                     est_coin_amount = order_allocation / current_price
                     
-                    # Target TP sangat cepat (+0.12%), SL ketat (-0.22%)
                     st.session_state['active_positions'][SOL_SYMBOL] = {
                         'entry': current_price,
                         'amount': est_coin_amount,
                         'allocation': order_allocation,
                         'target': current_price * 1.0012,  # TP +0.12%
-                        'sl': current_price * 0.9978       # SL -0.22%
+                        'sl': current_price * 0.9980       # SL -0.20%
                     }
                     
-                    add_swarm_log("Risk-Manager", f"⚡ SOL BUY Executed at ${current_price:.2f} (Volume: ${order_allocation:.2f}). TP +0.12%, SL -0.22%.")
+                    add_swarm_log("Risk-Manager", f"🛡️ SOL BUY Executed: ${current_price:.2f} (${order_allocation:.2f}). TP +0.12%, SL -0.20%.")
                     
                     st.session_state['trade_history'].insert(0, {
                         "Waktu": datetime.now().strftime("%H:%M:%S"),
@@ -294,16 +302,16 @@ def run_solana_hyper_loop():
                         
                     st.rerun()
 
-        # === 2. FASE PANTAU DAN KELUAR KILAT (1 DETIK) ===
+        # === 2. FASE PANTAU DAN EXIT KILAT (1 DETIK) ===
         if st.session_state['active_positions']:
             pos = st.session_state['active_positions'].get(SOL_SYMBOL)
             if pos and current_price:
                 pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
                 
-                # Break-Even Shield: Jika naik +0.06%, amankan SL ke harga entry
-                if pnl_pct >= 0.06 and pos['sl'] < pos['entry']:
+                # Break-Even Shield: Jika naik +0.05%, amankan SL ke harga entry (Risk-Free)
+                if pnl_pct >= 0.05 and pos['sl'] < pos['entry']:
                     pos['sl'] = pos['entry']
-                    add_swarm_log("Risk-Manager", "🔒 Break-Even Shield activated for SOL!")
+                    add_swarm_log("Risk-Manager", "🔒 Break-Even Shield activated for SOL! Position is now risk-free.")
 
                 if current_price >= pos['target'] or current_price <= pos['sl']:
                     action_type = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
@@ -328,7 +336,7 @@ def run_solana_hyper_loop():
                             st.session_state['consecutive_losses'] -= 1
                         
                         st.session_state['consecutive_wins'] += 1
-                        add_swarm_log("Nexus-Learner", f"🎯 SOL MICRO-PROFIT! +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)")
+                        add_swarm_log("Nexus-Learner", f"🎯 SOL PROFIT SECURED! +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)")
                         result_text = f"Profit: +${trade_pnl_usd:.2f} ({pnl_pct:+.2f}%)"
                     else:
                         mem_update['losses'] += 1
@@ -354,7 +362,7 @@ def run_solana_hyper_loop():
                     st.rerun()
 
     except Exception as e:
-        add_swarm_log("System", f"SOL Loop Error: {str(e)}")
+        add_swarm_log("System", f"Master Loop Error: {str(e)}")
 
     # === LAYOUT TAMPILAN ===
     col_left, col_right = st.columns([1.5, 1])
@@ -365,15 +373,15 @@ def run_solana_hyper_loop():
             df_hist = pd.DataFrame(st.session_state['trade_history'])
             st.dataframe(df_hist, width='stretch', hide_index=True)
         else:
-            st.info("Klik tombol **START HYPER** di sidebar untuk mulai scalping Solana...")
+            st.info("Klik tombol **START MASTER** di sidebar untuk mulai Quant Scalping Solana...")
             
     with col_right:
-        st.subheader("🤖 AI Solana Stream")
+        st.subheader("🤖 AI Master Stream")
         for log_html in st.session_state['swarm_logs']:
             st.markdown(log_html, unsafe_allow_html=True)
             
         st.markdown("---")
-        st.subheader("🧠 SOL Strategy Pool")
+        st.subheader("🧠 SOL Quant Strategy Pool")
         sol_mem = st.session_state['ai_memory'].get(SOL_SYMBOL, {'wins': 0, 'losses': 0, 'confidence': 50.0})
         st.markdown(
             f'<div class="learning-card">'
@@ -382,4 +390,4 @@ def run_solana_hyper_loop():
             unsafe_allow_html=True
         )
 
-run_solana_hyper_loop()
+run_ultimate_quant_loop()

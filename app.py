@@ -2,14 +2,14 @@ import streamlit as st
 import ccxt
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import json
 import os
 import requests
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.0 (Multi-Agent)", 
+    page_title="Deep AI Swing Pro v6.2 (TG Heartbeat)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -27,6 +27,7 @@ st.markdown("""
     .c-profit { color: #3fb950; font-weight: bold; }
     .c-loss { color: #f85149; font-weight: bold; }
     .c-warn { color: #f2cc60; font-weight: bold; }
+    .c-heartbeat { color: #d2a8ff; font-style: italic; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -94,6 +95,7 @@ if 'logs' not in st.session_state: st.session_state['logs'] = []
 if 'scan_reports' not in st.session_state: st.session_state['scan_reports'] = []
 if 'active_trades' not in st.session_state: st.session_state['active_trades'] = {}
 if 'is_running' not in st.session_state: st.session_state['is_running'] = False
+if 'last_tg_heartbeat' not in st.session_state: st.session_state['last_tg_heartbeat'] = None
 
 if 'ai_weights' not in st.session_state: 
     st.session_state['ai_weights'] = load_ai_weights()
@@ -119,8 +121,9 @@ def push_scan(msg, status="info"):
     elif status == "skipped": color = "#8b949e"
     elif status == "blocked": color = "#f85149"
     elif status == "warning": color = "#f2cc60"
+    elif status == "heartbeat": color = "#d2a8ff"
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
-    if len(st.session_state['scan_reports']) > 50: st.session_state['scan_reports'].pop()
+    if len(st.session_state['scan_reports']) > 60: st.session_state['scan_reports'].pop()
 
 @st.cache_data(ttl=300) 
 def scan_global_market():
@@ -163,18 +166,20 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.0")
-    st.write("Mode: **Multi-Agent Ensemble**")
+    st.title("🧠 Deep AI Brain v6.2")
+    st.write("Mode: **Multi-Agent + Telegram Ping**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("V6.0 Multi-Agent AI Aktif!", "system")
-        send_telegram_alert("🚀 *AI Swing Pro v6.0 Berhasil Diaktifkan!*")
+        st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
+        push_log("V6.2 Multi-Agent AI Aktif!", "system")
+        send_telegram_alert(f"🚀 *AI Swing Pro v6.2 Berhasil Diaktifkan!*\nLaporan rutin akan dikirim otomatis setiap 1 jam.\nSaldo Awal: `${total_eq:.2f}`")
         st.rerun()
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
+        st.session_state['last_tg_heartbeat'] = None
         push_log("Sistem AI Halted.", "warn")
         send_telegram_alert("⚠️ *AI Swing Pro Dihentikan Manual.*")
         st.rerun()
@@ -187,7 +192,7 @@ with st.sidebar:
 
 adaptive_max_pos = 1 if total_eq < 10.0 else (2 if total_eq < 25.0 else 3)
 
-st.header("⚡ AI Swing Pro (Multi-Agent Telemetry)")
+st.header("⚡ AI Swing Pro (Live Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -197,12 +202,27 @@ st.markdown("---")
 
 @st.fragment(run_every=60)
 def autonomous_trading_loop():
-    if not st.session_state['is_running']: return
+    if not st.session_state['is_running']: 
+        st.warning(f"⏸️ **SISTEM DIJEDA** | Menunggu perintah aktif. (Waktu server: {get_wita_time()} WITA)")
+        return
+        
+    now_wita = datetime.now(WITA)
+    
+    # 0. TELEGRAM HOURLY HEARTBEAT PING
+    if st.session_state['last_tg_heartbeat'] is not None:
+        time_since_last_hb = now_wita - st.session_state['last_tg_heartbeat']
+        if time_since_last_hb >= timedelta(hours=1):
+            send_telegram_alert(f"💓 *Heartbeat AI*\nMesin masih aktif dan berjalan normal memantau pasar.\nSaldo saat ini: `${total_eq:.2f}`\nWaktu: `{now_wita.strftime('%H:%M')} WITA`")
+            st.session_state['last_tg_heartbeat'] = now_wita
+
+    st.success(f"🟢 **MESIN AI AKTIF** | Pemindaian pasar terakhir selesai pada: **{now_wita.strftime('%H:%M:%S')} WITA**")
 
     WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'SUI/USDT', 'SOL/USDT']
     macro_status, macro_score = scan_global_market()
     current_total_eq = total_eq
     max_pos_allowed = 1 if current_total_eq < 10.0 else 2
+    
+    push_scan(f"🔄 Memulai siklus pemindaian market (Tren Makro: {macro_status})...", "heartbeat")
     
     # 1. AI EXIT MANAGER AGENT
     for sym, pos in list(st.session_state['active_trades'].items()):
@@ -210,7 +230,6 @@ def autonomous_trading_loop():
             current_price = float(exchange.fetch_ticker(sym)['last'])
             pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             
-            # Trailing Stop Dinamis
             if pnl_pct >= 1.5 and not pos.get('trailing_breakeven_active', False):
                 pos['sl'] = pos['entry']
                 pos['trailing_breakeven_active'] = True
@@ -267,13 +286,12 @@ def autonomous_trading_loop():
             
         vote_global = macro_score 
         vote_trend = 1.0 if data['close'] > data['ema50'] else 0.0
-        vote_momentum = 1.0 if (40 <= rsi <= 65) else 0.0  # Toleransi dilonggarkan
-        vote_whale = 1.0 if vol_ratio > 130 else 0.0       # Toleransi volume dilonggarkan
+        vote_momentum = 1.0 if (40 <= rsi <= 65) else 0.0  
+        vote_whale = 1.0 if vol_ratio > 130 else 0.0       
         
         W = st.session_state['ai_weights']
         total_score = (vote_global * W['global_trend_agent']) + (vote_trend * W['local_trend_agent']) + (vote_momentum * W['momentum_agent'])
         
-        # Threshold adaptif dipermudah agar eksekusi lebih cepat pada modal kecil
         threshold = 2.0 
         
         push_scan(f"Check {sym} | Chg: {chg:+.1f}% | RSI: {rsi:.1f} | Score: {total_score:.2f}", "info")
@@ -287,7 +305,7 @@ def autonomous_trading_loop():
                 exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
                 st.session_state['active_trades'][sym] = {
                     'entry': data['close'], 'qty': alloc / data['close'], 'alloc': alloc,
-                    'sl': data['close'] * 0.965, 'time': datetime.now(WITA).isoformat(),
+                    'sl': data['close'] * 0.965, 'time': now_wita.isoformat(),
                     'trailing_breakeven_active': False
                 }
                 push_log(f"🎯 EXECUTE BUY {sym} @ {data['close']:.4f} | Size: ${alloc:.2f}", "system")

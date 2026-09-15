@@ -73,7 +73,7 @@ except Exception as e:
 # State Management
 if 'trade_history' not in st.session_state: st.session_state['trade_history'] = []
 if 'active_positions' not in st.session_state: st.session_state['active_positions'] = {}
-if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = ['<div class="agent-pipeline"><span class="ai-agent">[System]</span> Autonomous Genetic Engine Online. AI is building custom strategies...</div>']
+if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = ['<div class="agent-pipeline"><span class="ai-agent">[System]</span> Autonomous Genetic Engine Online. Dust Sweeper armed.</div>']
 if 'ai_brain' not in st.session_state: st.session_state['ai_brain'] = load_ai_brain()
 if 'bot_active' not in st.session_state: st.session_state['bot_active'] = False  
 if 'initial_balance' not in st.session_state: st.session_state['initial_balance'] = total_eq if total_eq > 0 else 1.0
@@ -85,11 +85,36 @@ def add_log(msg, log_type="normal"):
     st.session_state['swarm_logs'].insert(0, log_html)
     if len(st.session_state['swarm_logs']) > 5: st.session_state['swarm_logs'].pop()
 
+# --- FITUR PEMBERSIH ASET SISA (DUST SWEEPER) ---
+def sweep_useless_assets():
+    try:
+        bal = exchange.fetch_balance()
+        free_balances = bal.get('free', {})
+        for coin, amount in free_balances.items():
+            # Jika ada aset selain USDT/USD/USDC yang jumlahnya > 0 dan tidak sedang aktif ditradingkan
+            if coin not in ['USDT', 'USD', 'USDC'] and amount > 0:
+                sym = f"{coin}/USDT"
+                if sym in exchange.markets and sym not in st.session_state['active_positions']:
+                    market = exchange.market(sym)
+                    ticker = exchange.fetch_ticker(sym)
+                    price = ticker.get('last', 0)
+                    est_value = amount * price
+                    min_cost = market.get('limits', {}).get('cost', {}).get('min', 1.0)
+                    
+                    # Jika nilai aset sisa mencukupi minimal order bursa, jual ke USDT!
+                    if est_value >= min_cost:
+                        exchange.create_market_sell_order(sym, amount)
+                        add_log(f"🧹 AI membersihkan aset sisa: {coin} -> USDT (${est_value:.2f})")
+    except Exception as e:
+        pass
+
 with st.sidebar:
     st.markdown("<h3 style='color: #00FF7F;'>🧬 GENETIC AI</h3>", unsafe_allow_html=True)
     if st.button("🚀 START AI", use_container_width=True):
         st.session_state['bot_active'] = True
-        add_log("AI Berjalan Mandiri. Membuat strategi adaptif...")
+        # Jalankan pembersih aset sisa saat bot pertama kali dinyalakan
+        sweep_useless_assets()
+        add_log("AI Berjalan. Membersihkan sisa aset & memindai pasar...")
         st.rerun()
     if st.button("🛑 STOP AI", use_container_width=True):
         st.session_state['bot_active'] = False
@@ -104,6 +129,15 @@ with st.sidebar:
                 except: pass
             st.session_state['active_positions'] = {}
         st.rerun()
+    
+    # Tombol Manual untuk Pembersih Aset Kapan Saja
+    if st.button("🧹 BERSIHKAN SEMUA SISA ASET", use_container_width=True):
+        try:
+            sweep_useless_assets()
+            add_log("Manual Dust Sweep selesai dijalankan.")
+            st.rerun()
+        except Exception as e:
+            add_log(f"Gagal membersihkan sisa aset: {e}", "alert")
 
 status_indicator = "🟢 AUTONOMOUS GENETIC" if st.session_state['bot_active'] else "🔴 OFFLINE"
 active_count = len(st.session_state['active_positions'])
@@ -134,30 +168,26 @@ def run_genetic_loop():
                     vol = float(data.get('quoteVolume', 0))
                     
                     if chg > 0.1 and vol > 15000:
-                        # Ambil memori DNA koin ini, jika belum ada buat default yang cerdas
                         if sym not in st.session_state['ai_brain']:
                             st.session_state['ai_brain'][sym] = {
                                 'wins': 0, 'losses': 0, 
-                                'custom_tp': 0.0035, # TP awal adaptif
-                                'custom_sl': 0.0030, # SL awal adaptif
-                                'target_rsi': 55.0   # Titik RSI ideal buatan AI
+                                'custom_tp': 0.0035, 
+                                'custom_sl': 0.0030, 
+                                'target_rsi': 55.0   
                             }
                         
                         brain = st.session_state['ai_brain'][sym]
-                        # Beri skor prioritas berdasarkan tingkat kemenangan koin tersebut
                         win_rate = brain['wins'] / max(1, (brain['wins'] + brain['losses']))
-                        score = ch * (1.0 + win_rate)
+                        score = chg * (1.0 + win_rate)
                         candidates.append({'symbol': sym, 'score': score, 'price': float(data.get('last', 0))})
             
             if candidates:
-                # Pilih koin terbaik dari daftar kandidat (Rotasi Multi-Coin)
                 candidates = sorted(candidates, key=lambda x: x['score'], reverse=True)
                 
-                for cand in candidates[:3]: # Cek 3 koin teratas secara berurutan
+                for cand in candidates[:3]: 
                     top_coin = cand['symbol']
                     price_now = cand['price']
                     
-                    # Tarik data kilat untuk analisis koin tersebut
                     ohlcv = exchange.fetch_ohlcv(top_coin, timeframe='1m', limit=8)
                     if not ohlcv or len(ohlcv) < 5: continue
                     
@@ -172,7 +202,6 @@ def run_genetic_loop():
                     
                     brain = st.session_state['ai_brain'][top_coin]
                     
-                    # Evaluasi mandiri AI: Apakah RSI mendekati target strategi buatan AI sendiri?
                     if closes.iloc[-1] > closes.iloc[-2] and current_rsi <= brain['target_rsi'] + 15:
                         min_cost = exchange.market(top_coin).get('limits', {}).get('cost', {}).get('min', 2.0)
                         alloc = max(min_cost, round(usdt_free / max(1, max_pos - active_count) * 0.9, 2))
@@ -198,13 +227,11 @@ def run_genetic_loop():
                 pnl_usd = pos['alloc'] * (pnl_pct / 100)
                 time_held = (datetime.now() - pos['entry_time']).total_seconds()
                 
-                # Dynamic Trailing Lock
                 if current_price > pos['highest_price']:
                     pos['highest_price'] = current_price
                     if pnl_pct >= 0.15: 
                         pos['sl'] = pos['entry'] * 1.001
 
-                # Kondisi Keluar & Proses Mutasi AI
                 if current_price >= pos['target'] or current_price <= pos['sl'] or time_held >= 15:
                     try:
                         sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['amount'] * 0.999)
@@ -216,19 +243,19 @@ def run_genetic_loop():
                     brain = st.session_state['ai_brain'][sym]
                     if pnl_pct > 0.10:
                         brain['wins'] += 1
-                        # Jika menang, AI memperkuat strateginya (menaikkan sedikit TP agar makin optimal)
                         brain['custom_tp'] = min(0.0080, brain['custom_tp'] + 0.0002)
                         add_log(f"AI Strategy Success: {sym} ({pnl_pct:+.2f}%)")
                     else:
                         brain['losses'] += 1
-                        # Jika kalah, AI bermutasi mengubah rumus TP dan SL agar tidak mengulang kesalahan
                         brain['custom_tp'] = max(0.0020, brain['custom_tp'] - 0.0003)
                         brain['custom_sl'] = min(0.0050, brain['custom_sl'] + 0.0002)
                         add_log(f"AI Mutating Strategy for {sym} due to loss.", "alert")
 
                     save_ai_brain(st.session_state['ai_brain'])
 
-                    # UI History: Nama Koin & Profit/Loss Bersih
+                    # Jalankan pembersih aset sisa setiap kali posisi selesai ditutup
+                    sweep_useless_assets()
+
                     result_str = f"${pnl_usd:+.2f} ({pnl_pct:+.2f}%)"
                     st.session_state['trade_history'].insert(0, {"Koin": sym, "Profit/Loss": result_str})
                     st.session_state['trade_history'] = st.session_state['trade_history'][:5]

@@ -6,14 +6,13 @@ from datetime import datetime
 import json
 import os
 
-# Konfigurasi Halaman & Tema Terminal Institusional AI (Ringan & Simpel)
+# Konfigurasi Halaman & Tema Terminal Institusional AI
 st.set_page_config(
-    page_title="Universal Scalper AI",
+    page_title="15-Sec Flash Scalper AI",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS Tampilan Terminal AI Swarm (Disederhanakan)
 st.markdown("""
     <style>
     .main { background-color: #05070a; color: #f0f6fc; }
@@ -32,36 +31,26 @@ st.markdown("""
         font-size: 11px;
         color: #c9d1d9;
     }
-    .learning-card {
-        background-color: #0d1117;
-        border: 1px solid #00FF7F;
-        padding: 8px;
-        border-radius: 6px;
-        font-size: 11px;
-        margin-bottom: 6px;
-    }
     .ai-agent { font-weight: bold; color: #00FF7F; }
+    .ai-alert { font-weight: bold; color: #ff7b72; }
+    .ai-flash { font-weight: bold; color: #f2cc60; }
     </style>
 """, unsafe_allow_html=True)
 
-# File Penyimpanan Otak AI Universal
 MEMORY_FILE = "universal_brain_lite.json"
 
 def load_ai_brain():
     if os.path.exists(MEMORY_FILE):
         try:
-            with open(MEMORY_FILE, "r") as f:
-                return json.load(f)
+            with open(MEMORY_FILE, "r") as f: return json.load(f)
         except: pass
     return {}
 
 def save_ai_brain(memory_data):
     try:
-        with open(MEMORY_FILE, "w") as f:
-            json.dump(memory_data, f)
+        with open(MEMORY_FILE, "w") as f: json.dump(memory_data, f)
     except: pass
 
-# Inisialisasi Exchange Bitget Live
 @st.cache_resource
 def init_bitget_live():
     exchange = ccxt.bitget({
@@ -86,18 +75,21 @@ except Exception as e:
 # State Management Ringan
 if 'trade_history' not in st.session_state: st.session_state['trade_history'] = []
 if 'active_positions' not in st.session_state: st.session_state['active_positions'] = {}
-if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = ['<div class="agent-pipeline"><span class="ai-agent">[System]</span> AI Universal initialized...</div>']
+if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = ['<div class="agent-pipeline"><span class="ai-agent">[System]</span> 15-Sec Flash Scalper AI Ready.</div>']
 if 'ai_brain' not in st.session_state: st.session_state['ai_brain'] = load_ai_brain()
 if 'bot_active' not in st.session_state: st.session_state['bot_active'] = False  
 if 'initial_balance' not in st.session_state: st.session_state['initial_balance'] = total_eq if total_eq > 0 else 1.0
 
-def add_log(msg):
+def add_log(msg, log_type="normal"):
     t = datetime.now().strftime("%H:%M:%S")
-    log_html = f'<div class="agent-pipeline"><span class="ai-agent">[{t}]</span> {msg}</div>'
+    tag_class = "ai-agent"
+    if log_type == "alert": tag_class = "ai-alert"
+    elif log_type == "flash": tag_class = "ai-flash"
+    
+    log_html = f'<div class="agent-pipeline"><span class="{tag_class}">[{t}]</span> {msg}</div>'
     st.session_state['swarm_logs'].insert(0, log_html)
     if len(st.session_state['swarm_logs']) > 6: st.session_state['swarm_logs'].pop()
 
-# --- DEEP QUANT ENGINE (Cached 2s) ---
 @st.cache_data(ttl=2) 
 def fetch_deep_quant_signal(symbol):
     try:
@@ -120,16 +112,15 @@ def fetch_deep_quant_signal(symbol):
         return is_bouncing, current_rsi, volatility
     except: return False, 50.0, 0.0
 
-# --- SIDEBAR KONTROL RINGAN ---
 with st.sidebar:
-    st.markdown("<h3 style='color: #00FF7F;'>🤖 AI CONTROL</h3>", unsafe_allow_html=True)
-    if st.button("🚀 ACTIVATE AI", use_container_width=True):
+    st.markdown("<h3 style='color: #00FF7F;'>⚡ FLASH CONTROL</h3>", unsafe_allow_html=True)
+    if st.button("🚀 ACTIVATE FLASH", use_container_width=True):
         st.session_state['bot_active'] = True
-        add_log("Universal Engine ON.")
+        add_log("15-Second Flash Engine ON.", "flash")
         st.rerun()
     if st.button("🛑 HALT / EXIT", use_container_width=True):
         st.session_state['bot_active'] = False
-        add_log("System Halted. Liquidating...")
+        add_log("System Halted. Liquidating...", "alert")
         if st.session_state['active_positions']:
             for s, p in list(st.session_state['active_positions'].items()):
                 try:
@@ -142,24 +133,22 @@ with st.sidebar:
             st.session_state['active_positions'] = {}
         st.rerun()
 
-st.markdown("<h3 style='color: #00FF7F;'>🌍 UNIVERSAL AI SCALPER</h3>", unsafe_allow_html=True)
-status_indicator = "🟢 ONLINE" if st.session_state['bot_active'] else "🔴 OFFLINE"
+st.markdown("<h3 style='color: #00FF7F;'>⚡ 15-SEC FLASH SCALPER & AI KELLY SIZING</h3>", unsafe_allow_html=True)
+status_indicator = "🟢 ONLINE (FLASH MODE)" if st.session_state['bot_active'] else "🔴 OFFLINE"
 
 active_count = len(st.session_state['active_positions'])
 max_pos = 1 if usdt_free < 4.0 else (2 if usdt_free < 8.0 else 3)
 pnl_pct = ((total_eq - st.session_state['initial_balance']) / st.session_state['initial_balance']) * 100 if st.session_state['initial_balance'] > 0 else 0.0
 
-# Metrik Sederhana
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status", status_indicator)
 c2.metric("Saldo", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}%")
 c3.metric("Posisi Aktif", f"{active_count} / {max_pos}")
-c4.metric("AI Mode", "Self-Managed Risk")
+c4.metric("AI Mode", "15s Time-Stop & Kelly Size")
 st.markdown("---")
 
-# LOOP LIVE TRADING UTAMA
 @st.fragment(run_every=1)
-def run_universal_lite_loop():
+def run_flash_lite_loop():
     if not st.session_state.get('bot_active', False): return
 
     try:
@@ -173,9 +162,13 @@ def run_universal_lite_loop():
             pre_candidates = []
             for sym in all_usdt_coins:
                 if sym not in existing_syms:
+                    brain = st.session_state['ai_brain'].get(sym, {})
+                    if brain.get('losses', 0) >= 3 and brain.get('wins', 0) <= 0:
+                        continue 
+                        
                     data = all_tickers[sym]
                     vol, chg = float(data.get('quoteVolume', 0)), float(data.get('percentage', 0))
-                    if vol > 30000 and chg > 0.0:
+                    if vol > 40000 and chg > 0.0:
                         pre_candidates.append({'symbol': sym, 'score': chg, 'price': float(data.get('last', 0))})
             
             top_candidates = sorted(pre_candidates, key=lambda x: x['score'], reverse=True)[:5]
@@ -191,38 +184,58 @@ def run_universal_lite_loop():
                 if is_bouncing and (brain['optimal_rsi_min'] <= rsi_val <= brain['optimal_rsi_max']):
                     min_cost = exchange.market(sym).get('limits', {}).get('cost', {}).get('min', 1.0)
                     
-                    # Auto-Volume
-                    equity_growth = total_eq / st.session_state['initial_balance']
-                    scale = min(0.99, 0.95 + ((equity_growth - 1.0) * 0.7)) if equity_growth > 1.0 else 0.95
-                    alloc = max(min_cost, round((usdt_free / max(1, max_pos - active_count)) * scale, 2))
+                    # 💡 FITUR EKSKLUSIF: AI Kelly Criterion Sizing (Skala Modal Agresif)
+                    total_trades = brain['wins'] + brain['losses']
+                    win_rate = brain['wins'] / total_trades if total_trades > 0 else 0.5
                     
-                    # Adaptive Risk Management by AI (No Circuit Breaker)
-                    tp_pct = 0.0018 if volatility > 0.15 else 0.0012
-                    sl_pct = 0.0028 if volatility > 0.15 else 0.0022
+                    if win_rate >= 0.65:
+                        alloc_pct = 0.80 # Agresif! Win-Rate bagus, pakai 80% modal nganggur
+                        add_log(f"🧠 High Confidence {sym} (WR: {win_rate*100:.0f}%). Maxing Capital!", "flash")
+                    elif win_rate >= 0.40:
+                        alloc_pct = 0.50 # Sedang, pakai 50% modal
+                    else:
+                        alloc_pct = 0.20 # Ragu-ragu, pakai 20% modal saja untuk testing
+                    
+                    calculated_alloc = (usdt_free / max(1, max_pos - active_count)) * alloc_pct
+                    alloc = max(min_cost, round(calculated_alloc, 2))
+                    
+                    # Target Tipis Cepat (0.35%)
+                    tp_pct = 0.0035 
+                    sl_pct = 0.0030 
 
                     if usdt_free >= alloc:
                         exchange.create_market_buy_order(sym, alloc, {'createMarketBuyOrderRequiresPrice': False})
                         st.session_state['active_positions'][sym] = {
-                            'entry': cand['price'], 'amount': alloc / cand['price'], 'alloc': alloc,
-                            'target': cand['price'] * (1 + tp_pct), 'sl': cand['price'] * (1 - sl_pct), 'entry_rsi': rsi_val 
+                            'entry': cand['price'], 
+                            'amount': alloc / cand['price'], 
+                            'alloc': alloc,
+                            'target': cand['price'] * (1 + tp_pct), 
+                            'sl': cand['price'] * (1 - sl_pct), 
+                            'entry_rsi': rsi_val,
+                            'entry_time': datetime.now() # 💡 Catat waktu masuk detik ini juga
                         }
-                        add_log(f"BUY {sym} | TP +{tp_pct*100:.2f}%, SL -{sl_pct*100:.2f}%")
-                        st.session_state['trade_history'].insert(0, {"Waktu": datetime.now().strftime("%H:%M:%S"), "Token": sym, "Aksi": f"BUY (${alloc:.2f})", "Hasil": "Aktif"})
+                        add_log(f"BUY {sym} | ⏱️ 15-Sec Countdown Started!")
+                        st.session_state['trade_history'].insert(0, {"Waktu": datetime.now().strftime("%H:%M:%S"), "Token": sym, "Aksi": f"BUY (${alloc:.2f})", "Hasil": "Aktif (15s)"})
                         st.session_state['trade_history'] = st.session_state['trade_history'][:5]
                         st.rerun()
                     break
 
-        # --- EXIT & LEARNING PHASE ---
+        # --- EXIT & LEARNING PHASE (TIME-STOP) ---
         if st.session_state['active_positions']:
             for sym, pos in list(st.session_state['active_positions'].items()):
                 if sym in all_tickers and all_tickers[sym].get('last'):
                     current_price = float(all_tickers[sym]['last'])
                     pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
                     
-                    if pnl_pct >= 0.06 and pos['sl'] < pos['entry']: pos['sl'] = pos['entry'] # Break-Even
-
-                    if current_price >= pos['target'] or current_price <= pos['sl']:
-                        act = "TAKE PROFIT" if current_price >= pos['target'] else "STOP LOSS"
+                    # 💡 FITUR EKSKLUSIF: The 15-Second Time-Stop
+                    time_held = (datetime.now() - pos['entry_time']).total_seconds()
+                    
+                    # Kondisi Exit: Kena TP, kena SL, ATAU Waktu sudah lewat 15 detik!
+                    if current_price >= pos['target'] or current_price <= pos['sl'] or time_held >= 15:
+                        
+                        if current_price >= pos['target']: act = "TAKE PROFIT"
+                        elif current_price <= pos['sl']: act = "STOP LOSS"
+                        else: act = "TIME-STOP 15s" # Terjual karena habis waktu
                         
                         try:
                             sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['amount'] * 0.999)
@@ -231,40 +244,44 @@ def run_universal_lite_loop():
                         exchange.create_market_sell_order(sym, sell_amt)
                         pnl_usd = pos['alloc'] * (pnl_pct / 100)
                         
-                        # AI Learning
                         brain = st.session_state['ai_brain'][sym]
                         rsi_e = pos.get('entry_rsi', 50.0)
                         
-                        if act == "TAKE PROFIT":
+                        # AI Evaluasi
+                        if pnl_pct > 0.15: # Hitung Win jika profit bersih setelah fee
                             brain['wins'] += 1
                             brain['avg_winning_rsi'] = ((brain['avg_winning_rsi'] * (brain['wins'] - 1)) + rsi_e) / brain['wins']
                             brain['optimal_rsi_min'] = max(30.0, brain['avg_winning_rsi'] - 12.0)
                             brain['optimal_rsi_max'] = min(75.0, brain['avg_winning_rsi'] + 12.0)
-                            add_log(f"PROFIT {sym}: +${pnl_usd:.2f}. AI RSI range updated.")
+                            add_log(f"✅ {act} {sym}: +${pnl_usd:.2f} ({pnl_pct:+.2f}%) dalam {time_held:.0f}s")
                         else:
                             brain['losses'] += 1
                             if rsi_e < brain['avg_winning_rsi']: brain['optimal_rsi_min'] = min(50.0, brain['optimal_rsi_min'] + 1.5)
                             else: brain['optimal_rsi_max'] = max(50.0, brain['optimal_rsi_max'] - 1.5)
-                            add_log(f"LOSS CUT {sym}: -${abs(pnl_usd):.2f}. AI Risk adjusted.")
+                            
+                            if act == "TIME-STOP 15s":
+                                add_log(f"⏱️ WAKTU HABIS {sym}: Terjual paksa di {pnl_pct:+.2f}%", "flash")
+                            else:
+                                add_log(f"❌ {act} {sym}: -${abs(pnl_usd):.2f} ({pnl_pct:+.2f}%)", "alert")
 
                         st.session_state['ai_brain'][sym] = brain
                         save_ai_brain(st.session_state['ai_brain'])
 
-                        st.session_state['trade_history'].insert(0, {"Waktu": datetime.now().strftime("%H:%M:%S"), "Token": sym, "Aksi": act, "Hasil": f"{act} ({pnl_pct:+.2f}%)"})
+                        st.session_state['trade_history'].insert(0, {"Waktu": datetime.now().strftime("%H:%M:%S"), "Token": sym, "Aksi": act, "Hasil": f"{pnl_pct:+.2f}%"})
                         st.session_state['trade_history'] = st.session_state['trade_history'][:5]
                         del st.session_state['active_positions'][sym]
                         st.rerun()
 
-    except Exception as e: add_log(f"Error: {str(e)}")
+    except Exception as e: add_log(f"Error: {str(e)}", "alert")
 
 # --- UI BAWAH RINGAN ---
 c_left, c_right = st.columns([1.2, 1.8])
 with c_left:
     st.markdown("**📋 5 Order Terakhir**")
     if st.session_state['trade_history']: st.dataframe(pd.DataFrame(st.session_state['trade_history']), width='stretch', hide_index=True)
-    else: st.info("Standby...")
+    else: st.info("Menunggu sinyal Flash...")
 with c_right:
-    st.markdown("**🧠 AI Logic Stream**")
+    st.markdown("**⚡ Flash AI Logic Stream**")
     for log in st.session_state['swarm_logs']: st.markdown(log, unsafe_allow_html=True)
     
-run_universal_lite_loop()
+run_flash_lite_loop()

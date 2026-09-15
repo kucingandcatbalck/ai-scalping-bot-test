@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.5.1 (Stable)", 
+    page_title="Deep AI Swing Pro v6.6 (Expanded Log)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -51,7 +51,6 @@ def send_telegram_alert(message):
         with urllib.request.urlopen(req, timeout=5) as response:
             return response.status == 200
     except Exception as e:
-        print(f"Telegram Error: {e}")
         return False
 
 def load_ai_weights():
@@ -119,7 +118,7 @@ def push_log(msg, ltype="system"):
     elif ltype == "loss": color = "c-loss"
     elif ltype == "warn": color = "c-warn"
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
-    if len(st.session_state['logs']) > 15: st.session_state['logs'].pop()
+    if len(st.session_state['logs']) > 20: st.session_state['logs'].pop()
 
 def push_scan(msg, status="info"):
     t_str = get_wita_time()
@@ -130,7 +129,8 @@ def push_scan(msg, status="info"):
     elif status == "warning": color = "#f2cc60"
     elif status == "heartbeat": color = "#d2a8ff"
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
-    if len(st.session_state['scan_reports']) > 5: st.session_state['scan_reports'].pop()
+    # DIPERBESAR: Riwayat scan dinaikkan menjadi maksimal 20 baris
+    if len(st.session_state['scan_reports']) > 20: st.session_state['scan_reports'].pop()
 
 @st.cache_data(ttl=300) 
 def scan_global_market():
@@ -172,34 +172,24 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.5.1")
-    st.write("Mode: **Stable Native HTTP**")
+    st.title("🧠 Deep AI Brain v6.6")
+    st.write("Mode: **Expanded Scan Log**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
         st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
-        push_log("V6.5.1 Stable AI Aktif!", "system")
-        send_telegram_alert(f"🚀 *AI Swing Pro v6.5.1 Berhasil Diaktifkan!*\nSaldo Awal: `${total_eq:.2f}`")
+        push_log("V6.6 Expanded AI Aktif!", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
         st.session_state['last_tg_heartbeat'] = None
         push_log("Sistem AI Halted.", "warn")
-        send_telegram_alert("⚠️ *AI Swing Pro Dihentikan Manual.*")
         st.rerun()
-        
-    st.markdown("---")
-    if st.button("💬 Test Pesan Telegram", use_container_width=True):
-        success = send_telegram_alert("✅ *Test Koneksi Berhasil!* Bot terhubung sempurna.")
-        if success:
-            st.success("Pesan terkirim! Cek HP kamu.")
-        else:
-            st.error("Gagal! Periksa kembali Token / Chat ID di Secrets.")
 
-st.header("⚡ AI Swing Pro (Stable Telemetry)")
+st.header("⚡ AI Swing Pro (Expanded Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -210,14 +200,14 @@ st.markdown("---")
 if not st.session_state['is_running']:
     st.warning(f"⏸️ **SISTEM DIJEDA** | Klik 'Aktifkan AI' untuk mulai.")
 else:
-    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar 24/7.")
+    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar 24/7 (Riwayat scan ditampilkan 20 baris).")
 
 col_left, col_right = st.columns(2)
 with col_left:
     st.markdown("**🧠 Jaringan Saraf Keputusan (Log)**")
     log_container = st.empty()
 with col_right:
-    st.markdown("**🔍 Scanner Telemetry (Max 5 Baris)**")
+    st.markdown("**🔍 Scanner Telemetry (Max 20 Baris)**")
     scan_container = st.empty()
 
 @st.fragment(run_every=60)
@@ -229,11 +219,6 @@ def autonomous_trading_loop():
         
     now_wita = datetime.now(WITA)
     
-    if st.session_state['last_tg_heartbeat'] is not None:
-        if now_wita - st.session_state['last_tg_heartbeat'] >= timedelta(hours=1):
-            send_telegram_alert(f"💓 *Heartbeat AI*\nSaldo: `${total_eq:.2f}`\nWaktu: `{now_wita.strftime('%H:%M')} WITA`")
-            st.session_state['last_tg_heartbeat'] = now_wita
-
     WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'SUI/USDT', 'SOL/USDT']
     macro_status, macro_score = scan_global_market()
     current_total_eq = total_eq
@@ -250,7 +235,6 @@ def autonomous_trading_loop():
                 pos['sl'] = pos['entry']
                 pos['trailing_breakeven_active'] = True
                 push_log(f"🛡️ TRAILING STOP {sym}: SL ke Breakeven.", "warn")
-                send_telegram_alert(f"🛡️ *Trailing Stop* `{sym}`\nSL ke harga modal.")
 
             dynamic_tp = pos['entry'] * 1.035 if macro_score > 0 else pos['entry'] * 1.02
             
@@ -268,12 +252,10 @@ def autonomous_trading_loop():
                     W['win_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
                     push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f}", "profit")
-                    send_telegram_alert(f"✅ *{reason}* `{sym}`\nCuan: `+${pnl_usdt:.2f}`")
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
                     push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f}", "loss")
-                    send_telegram_alert(f"❌ *{reason}* `{sym}`\nLoss: `-${abs(pnl_usdt):.2f}`")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
@@ -318,7 +300,6 @@ def autonomous_trading_loop():
                     'trailing_breakeven_active': False
                 }
                 push_log(f"🎯 BUY {sym} @ {data['close']:.4f} | ${alloc:.2f}", "system")
-                send_telegram_alert(f"🎯 *Buy* `{sym}` | Harga: `{data['close']:.4f}`")
                 st.rerun()
                 break
             except Exception as e:

@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.5 (Stable)", 
+    page_title="Deep AI Swing Pro v6.5.1 (Stable)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -172,7 +172,7 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.5")
+    st.title("🧠 Deep AI Brain v6.5.1")
     st.write("Mode: **Stable Native HTTP**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
@@ -180,8 +180,8 @@ with st.sidebar:
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
         st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
-        push_log("V6.5 Stable AI Aktif!", "system")
-        send_telegram_alert(f"🚀 *AI Swing Pro v6.5 Berhasil Diaktifkan!*\nSaldo Awal: `${total_eq:.2f}`")
+        push_log("V6.5.1 Stable AI Aktif!", "system")
+        send_telegram_alert(f"🚀 *AI Swing Pro v6.5.1 Berhasil Diaktifkan!*\nSaldo Awal: `${total_eq:.2f}`")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -273,7 +273,7 @@ def autonomous_trading_loop():
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
                     push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f}", "loss")
-                    send_telegram_alert(f"❌ *{reason}* `{sym}`\nLoss: `-${abs(pnl_usdt:.2f}`")
+                    send_telegram_alert(f"❌ *{reason}* `{sym}`\nLoss: `-${abs(pnl_usdt):.2f}`")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]

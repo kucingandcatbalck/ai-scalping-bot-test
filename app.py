@@ -9,7 +9,7 @@ import os
 import requests
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.3 (Fix & Unlock)", 
+    page_title="Deep AI Swing Pro v6.4 (Ultra-Light)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -115,7 +115,8 @@ def push_log(msg, ltype="system"):
     elif ltype == "loss": color = "c-loss"
     elif ltype == "warn": color = "c-warn"
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
-    if len(st.session_state['logs']) > 100: st.session_state['logs'].pop()
+    # OPTIMASI: Batasi log keputusan maksimal 15 baris agar UI tidak berat
+    if len(st.session_state['logs']) > 15: st.session_state['logs'].pop()
 
 def push_scan(msg, status="info"):
     t_str = get_wita_time()
@@ -126,7 +127,8 @@ def push_scan(msg, status="info"):
     elif status == "warning": color = "#f2cc60"
     elif status == "heartbeat": color = "#d2a8ff"
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
-    if len(st.session_state['scan_reports']) > 60: st.session_state['scan_reports'].pop()
+    # OPTIMASI: Batasi riwayat scan HANYA 5 BARIS sesuai permintaan agar RAM aman
+    if len(st.session_state['scan_reports']) > 5: st.session_state['scan_reports'].pop()
 
 @st.cache_data(ttl=300) 
 def scan_global_market():
@@ -168,16 +170,16 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.3")
-    st.write("Mode: **Multi-Agent Unlocked**")
+    st.title("🧠 Deep AI Brain v6.4")
+    st.write("Mode: **Ultra-Lightweight**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
         st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
-        push_log("V6.3 Multi-Agent AI Aktif!", "system")
-        send_telegram_alert(f"🚀 *AI Swing Pro v6.3 Berhasil Diaktifkan!*\nLaporan rutin akan dikirim otomatis setiap 1 jam.\nSaldo Awal: `${total_eq:.2f}`")
+        push_log("V6.4 Ultra-Lightweight AI Aktif!", "system")
+        send_telegram_alert(f"🚀 *AI Swing Pro v6.4 Berhasil Diaktifkan!*\nLaporan rutin akan dikirim otomatis setiap 1 jam.\nSaldo Awal: `${total_eq:.2f}`")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -195,7 +197,7 @@ with st.sidebar:
         else:
             st.error("Gagal! Pastikan Token & Chat ID di pengaturan Secrets sudah benar.")
 
-st.header("⚡ AI Swing Pro (Live Telemetry)")
+st.header("⚡ AI Swing Pro (Ultra-Light Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -203,18 +205,17 @@ c3.metric("Posisi Aktif", f"{len(st.session_state['active_trades'])} / 2 Max")
 c4.metric("Total Profit", f"${st.session_state['ai_weights'].get('total_profit_usdt', 0.0):.2f}", f"{st.session_state['ai_weights']['win_history']}W / {st.session_state['ai_weights']['loss_history']}L")
 st.markdown("---")
 
-# STATUS UI DIPERMANENKAN DI LUAR FRAGMENT AGAR TIDAK HILANG
 if not st.session_state['is_running']:
     st.warning(f"⏸️ **SISTEM DIJEDA** | Bot sedang beristirahat. Klik 'Aktifkan AI' untuk memulai.")
 else:
-    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar secara otomatis 24/7 di latar belakang.")
+    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar 24/7 di latar belakang. (Scan dibatasi 5 riwayat agar ringan)")
 
 col_left, col_right = st.columns(2)
 with col_left:
     st.markdown("**🧠 Jaringan Saraf Keputusan (Log)**")
     log_container = st.empty()
 with col_right:
-    st.markdown("**🔍 Scanner Telemetry Multi-Agen**")
+    st.markdown("**🔍 Scanner Telemetry (Max 5 Baris)**")
     scan_container = st.empty()
 
 @st.fragment(run_every=60)
@@ -280,7 +281,7 @@ def autonomous_trading_loop():
                 st.rerun()
         except Exception as e: pass
 
-    # 2. AI OPPORTUNITY SCANNER AGENT (UNLOCKED)
+    # 2. AI OPPORTUNITY SCANNER AGENT
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']:
             continue
@@ -293,24 +294,23 @@ def autonomous_trading_loop():
         vol_ratio = (data['vol'] / data['vol_sma20']) * 100 if data['vol_sma20'] > 0 else 100.0
         
         if not data['is_4h_uptrend']:
-            push_scan(f"Verdict {sym} -> SKIP (Ditolak Agen Tren 4H)", "skipped")
+            push_scan(f"Verdict {sym} -> SKIP (Ditolak Tren 4H)", "skipped")
             continue 
             
-        # BTC Bearish (macro_score < 0) tidak lagi otomatis memblokir, melainkan hanya mendapat nilai 0 untuk skor makro.
         vote_global = 1.0 if macro_score > 0 else 0.0 
         vote_trend = 1.0 if data['close'] > data['ema50'] else 0.0
         vote_momentum = 1.0 if (40 <= rsi <= 65) else 0.0  
-        vote_whale = 1.5 if vol_ratio > 130 else 0.0  # Whale punya bobot 1.5 (sangat kuat)
+        vote_whale = 1.5 if vol_ratio > 130 else 0.0  
         
         W = st.session_state['ai_weights']
         total_score = (vote_global * W['global_trend_agent']) + (vote_trend * W['local_trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_whale * W['volume_whale_agent'])
         
-        threshold = 2.5 # Harus mencapai skor 2.5. Jika BTC Bearish (0), koin masih bisa dibeli jika Tren (1.0) + Whale (1.5) kuat!
+        threshold = 2.5 
         
-        push_scan(f"Check {sym} | Chg: {chg:+.1f}% | RSI: {rsi:.1f} | Score: {total_score:.2f}", "info")
+        push_scan(f"Check {sym} | RSI: {rsi:.1f} | Score: {total_score:.2f}", "info")
         
         if total_score >= threshold and len(st.session_state['active_trades']) < max_pos_allowed and usdt_free >= 2.5:
-            push_scan(f"Verdict {sym} -> APPROVED (Konsensus Agen Tercapai!)", "passed")
+            push_scan(f"Verdict {sym} -> APPROVED!", "passed")
             try:
                 alloc = max(2.20, round(usdt_free * 0.45, 2))
                 if alloc > usdt_free * 0.95: alloc = round(usdt_free * 0.95, 2)
@@ -326,7 +326,7 @@ def autonomous_trading_loop():
                 st.rerun()
                 break
             except Exception as e:
-                push_scan(f"Gagal order {sym}: {str(e)}", "blocked")
+                push_scan(f"Gagal order {sym}", "blocked")
 
     # Render Panel
     log_container.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)

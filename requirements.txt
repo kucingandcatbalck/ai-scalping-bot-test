@@ -3,4 +3,5 @@ ccxt
 pandas
 numpy
 pytz
+requests
 tradingview_ta

@@ -9,7 +9,7 @@ import os
 import requests
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v5.1 (Live Scanner)", 
+    page_title="Deep AI Swing Pro v5.2 (Verbose Scanner)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -19,15 +19,14 @@ st.markdown("""
     .main { background-color: #030508; color: #c9d1d9; }
     div.stMetric { background-color: #0d1117; padding: 15px; border-radius: 8px; border: 1px solid #30363d; border-left: 4px solid #00FF7F; }
     div.stMetric label { color: #8b949e !important; font-size: 13px; font-weight: bold; }
-    .log-container { background-color: #010409; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 350px; overflow-y: auto; font-family: monospace; font-size: 12px; }
-    .scan-container { background-color: #0d1117; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 350px; overflow-y: auto; font-family: monospace; font-size: 12px; }
-    .log-line { border-bottom: 1px solid #21262d; padding: 5px 0; }
+    .log-container { background-color: #010409; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 380px; overflow-y: auto; font-family: monospace; font-size: 11px; }
+    .scan-container { background-color: #0d1117; border: 1px solid #30363d; border-radius: 5px; padding: 10px; height: 380px; overflow-y: auto; font-family: monospace; font-size: 11px; }
+    .log-line { border-bottom: 1px solid #21262d; padding: 4px 0; }
     .c-time { color: #8b949e; }
     .c-system { color: #58a6ff; font-weight: bold; }
     .c-profit { color: #3fb950; font-weight: bold; }
     .c-loss { color: #f85149; font-weight: bold; }
     .c-warn { color: #f2cc60; font-weight: bold; }
-    .c-trail { color: #d2a8ff; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -110,7 +109,6 @@ def push_log(msg, ltype="system"):
     if ltype == "profit": color = "c-profit"
     elif ltype == "loss": color = "c-loss"
     elif ltype == "warn": color = "c-warn"
-    elif ltype == "trail": color = "c-trail"
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
     if len(st.session_state['logs']) > 150: st.session_state['logs'].pop()
 
@@ -118,10 +116,10 @@ def push_scan(msg, status="info"):
     t_str = get_wita_time()
     color = "#58a6ff"
     if status == "passed": color = "#3fb950"
-    elif status == "blocked": color = "#f85149"
+    elif status == "skipped": color = "#f85149"
     elif status == "warning": color = "#f2cc60"
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
-    if len(st.session_state['scan_reports']) > 100: st.session_state['scan_reports'].pop()
+    if len(st.session_state['scan_reports']) > 120: st.session_state['scan_reports'].pop()
 
 @st.cache_data(ttl=300) 
 def scan_global_market():
@@ -164,19 +162,20 @@ def fetch_deep_indicators(symbol):
         
         res = df_1h.iloc[-1].to_dict()
         res['is_4h_uptrend'] = is_4h_uptrend
+        res['chg_pct'] = ((df_1h['close'].iloc[-1] - df_1h['open'].iloc[-1]) / df_1h['open'].iloc[-1]) * 100
         return res
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v5.1")
-    st.write("Mode: **Live Scan Telemetry**")
+    st.title("🧠 Deep AI Brain v5.2")
+    st.write("Mode: **Verbose Telemetry**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Global:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("Autonomous AI & Scanner Aktif!", "system")
-        send_telegram_alert("🚀 *AI Swing Pro v5.1 Berhasil Diaktifkan dengan Live Scanner!*")
+        push_log("Autonomous AI & Verbose Scanner Aktif!", "system")
+        send_telegram_alert("🚀 *AI Swing Pro v5.2 Aktif dengan Verbose Scan Telemetry!*")
         st.rerun()
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
@@ -192,7 +191,7 @@ with st.sidebar:
 
 adaptive_max_pos = 1 if total_eq < 10.0 else (2 if total_eq < 25.0 else 3)
 
-st.header("⚡ AI Swing Pro (Live Telemetry)")
+st.header("⚡ AI Swing Pro (Verbose Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -251,30 +250,36 @@ def autonomous_trading_loop():
                 st.rerun()
         except Exception as e: pass
 
-    # 2. SCANNING & ENTRY PHASE
-    push_scan(f"Memulai siklus pemindaian pasar global (BTC Trend: {macro_status})...", "info")
+    # 2. VERBOSE SCANNING & ENTRY PHASE
+    push_scan("Memulai siklus pemindaian universal dan penyaringan tren...", "info")
     
     if macro_score < 0:
-        push_scan("⚠️ BTC Bearish terdeteksi. Pemindaian altcoin dihentikan sementara.", "blocked")
+        push_scan("⚠️ Warning: BTC Trend BEARISH. Sinyal beli diblokir demi keamanan modal.", "skipped")
         return
         
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']:
-            push_scan(f"Skipping {sym}: Sudah ada posisi aktif.", "warning")
+            push_scan(f"Verdict {sym} -> SKIP (Posisi sudah aktif)", "warning")
             continue
         
         data = fetch_deep_indicators(sym)
         if data is None:
-            push_scan(f"Gagal memuat indikator untuk {sym}.", "blocked")
+            push_scan(f"Verdict {sym} -> SKIP (Gagal ambil data indikator)", "skipped")
             continue
         
+        chg = data.get('chg_pct', 0.0)
+        rsi = data.get('rsi', 50.0)
+        vol_ratio = (data['vol'] / data['vol_sma20']) * 100 if data['vol_sma20'] > 0 else 100.0
+        
+        push_scan(f"Check {sym} | Chg: {chg:+.1f}% | RSI: {rsi:.1f} | Vol Ratio: {vol_ratio:.1f}%", "info")
+        
         if not data['is_4h_uptrend']:
-            push_scan(f"❌ {sym}: Gagal filter tren 4H (Downtrend).", "blocked")
+            push_scan(f"Verdict {sym} -> SKIP (Gagal filter tren 4H)", "skipped")
             continue 
             
         vote_global = macro_score 
         vote_trend = 1.0 if data['close'] > data['ema50'] else 0.0
-        vote_momentum = 1.0 if (40 <= data['rsi'] <= 62) else 0.0 
+        vote_momentum = 1.0 if (40 <= rsi <= 62) else 0.0 
         vote_volatility = 1.0 if data['close'] <= data['bb_lower'] * 1.02 else 0.0 
         vote_whale = 1.5 if data['vol'] > (data['vol_sma20'] * 1.8) else 0.0 
         
@@ -289,7 +294,7 @@ def autonomous_trading_loop():
         threshold = (W['global_trend_agent'] + W['local_trend_agent'] + W['momentum_agent']) * 0.82
         
         if total_score >= threshold:
-            push_scan(f"🎯 {sym} PASSED: Skor {total_score:.2f} >= Threshold {threshold:.2f}. Eksekusi Buy!", "passed")
+            push_scan(f"Verdict {sym} -> BUY! (Skor: {total_score:.2f} >= Target {threshold:.2f})", "passed")
             try:
                 conviction_ratio = min(1.8, total_score / max(1.0, threshold))
                 safety_min = 2.20
@@ -308,17 +313,17 @@ def autonomous_trading_loop():
                 st.rerun()
                 break
             except Exception as e:
-                push_scan(f"Gagal order {sym}: {str(e)}", "blocked")
+                push_scan(f"Verdict {sym} -> ERROR ({str(e)})", "skipped")
         else:
-            push_scan(f"⏳ {sym}: Skor {total_score:.2f} (Belum memenuhi syarat minimal {threshold:.2f}). Menunggu...", "warning")
+            push_scan(f"Verdict {sym} -> SKIP (Skor {total_score:.2f} < Minimum {threshold:.2f})", "warning")
 
-# --- TAMPILAN DUA PANEL DI BAWAH (LOG & LIVE SCAN) ---
+# --- TAMPILAN PANEL BAWAH ---
 col_left, col_right = st.columns(2)
 with col_left:
     st.markdown("**🧠 Live AI Neural Log**")
     st.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
 with col_right:
-    st.markdown("**🔍 Live Market Scan Telemetry**")
+    st.markdown("**🔍 Verbose Market Scan Telemetry**")
     st.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
 
 autonomous_trading_loop()

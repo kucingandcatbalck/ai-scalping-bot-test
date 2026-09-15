@@ -9,7 +9,7 @@ import os
 import requests
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.2 (TG Heartbeat)", 
+    page_title="Deep AI Swing Pro v6.3 (Fix & Unlock)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -41,11 +41,14 @@ def send_telegram_alert(message):
     try:
         token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
         chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
-        if token and chat_id:
-            url = f"https://api.telegram.org/bot{token}/sendMessage"
-            payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
-            requests.post(url, json=payload, timeout=5)
-    except: pass
+        if not token or not chat_id:
+            return False
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+        res = requests.post(url, json=payload, timeout=5)
+        return res.status_code == 200
+    except: 
+        return False
 
 def load_ai_weights():
     default_weights = {
@@ -131,7 +134,6 @@ def scan_global_market():
         ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=50)
         df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df['ema20'] = df['close'].ewm(span=20).mean()
-        df['ema50'] = df['close'].ewm(span=50).mean()
         last_close = df['close'].iloc[-1]
         ema20 = df['ema20'].iloc[-1]
         
@@ -166,44 +168,60 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.2")
-    st.write("Mode: **Multi-Agent + Telegram Ping**")
+    st.title("🧠 Deep AI Brain v6.3")
+    st.write("Mode: **Multi-Agent Unlocked**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
         st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
-        push_log("V6.2 Multi-Agent AI Aktif!", "system")
-        send_telegram_alert(f"🚀 *AI Swing Pro v6.2 Berhasil Diaktifkan!*\nLaporan rutin akan dikirim otomatis setiap 1 jam.\nSaldo Awal: `${total_eq:.2f}`")
+        push_log("V6.3 Multi-Agent AI Aktif!", "system")
+        send_telegram_alert(f"🚀 *AI Swing Pro v6.3 Berhasil Diaktifkan!*\nLaporan rutin akan dikirim otomatis setiap 1 jam.\nSaldo Awal: `${total_eq:.2f}`")
         st.rerun()
+        
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
         st.session_state['last_tg_heartbeat'] = None
         push_log("Sistem AI Halted.", "warn")
         send_telegram_alert("⚠️ *AI Swing Pro Dihentikan Manual.*")
         st.rerun()
-    
+        
     st.markdown("---")
-    st.markdown("**🧠 Jaringan Saraf Agen:**")
-    W = st.session_state['ai_weights']
-    st.progress(min(1.0, W['global_trend_agent']/3.0), text=f"Makro Agent: {W['global_trend_agent']:.2f}")
-    st.progress(min(1.0, W['momentum_agent']/3.0), text=f"Momentum Agent: {W['momentum_agent']:.2f}")
-
-adaptive_max_pos = 1 if total_eq < 10.0 else (2 if total_eq < 25.0 else 3)
+    if st.button("💬 Test Pesan Telegram", use_container_width=True):
+        success = send_telegram_alert("✅ *Test Koneksi Berhasil!* Bot kamu sudah terhubung ke Telegram dengan sempurna.")
+        if success:
+            st.success("Pesan terkirim! Cek HP kamu.")
+        else:
+            st.error("Gagal! Pastikan Token & Chat ID di pengaturan Secrets sudah benar.")
 
 st.header("⚡ AI Swing Pro (Live Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
-c3.metric("Posisi Aktif", f"{len(st.session_state['active_trades'])} / {adaptive_max_pos} Max")
-c4.metric("Total Profit", f"${W.get('total_profit_usdt', 0.0):.2f}", f"{W['win_history']}W / {W['loss_history']}L")
+c3.metric("Posisi Aktif", f"{len(st.session_state['active_trades'])} / 2 Max")
+c4.metric("Total Profit", f"${st.session_state['ai_weights'].get('total_profit_usdt', 0.0):.2f}", f"{st.session_state['ai_weights']['win_history']}W / {st.session_state['ai_weights']['loss_history']}L")
 st.markdown("---")
+
+# STATUS UI DIPERMANENKAN DI LUAR FRAGMENT AGAR TIDAK HILANG
+if not st.session_state['is_running']:
+    st.warning(f"⏸️ **SISTEM DIJEDA** | Bot sedang beristirahat. Klik 'Aktifkan AI' untuk memulai.")
+else:
+    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar secara otomatis 24/7 di latar belakang.")
+
+col_left, col_right = st.columns(2)
+with col_left:
+    st.markdown("**🧠 Jaringan Saraf Keputusan (Log)**")
+    log_container = st.empty()
+with col_right:
+    st.markdown("**🔍 Scanner Telemetry Multi-Agen**")
+    scan_container = st.empty()
 
 @st.fragment(run_every=60)
 def autonomous_trading_loop():
     if not st.session_state['is_running']: 
-        st.warning(f"⏸️ **SISTEM DIJEDA** | Menunggu perintah aktif. (Waktu server: {get_wita_time()} WITA)")
+        log_container.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
+        scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
         return
         
     now_wita = datetime.now(WITA)
@@ -212,17 +230,15 @@ def autonomous_trading_loop():
     if st.session_state['last_tg_heartbeat'] is not None:
         time_since_last_hb = now_wita - st.session_state['last_tg_heartbeat']
         if time_since_last_hb >= timedelta(hours=1):
-            send_telegram_alert(f"💓 *Heartbeat AI*\nMesin masih aktif dan berjalan normal memantau pasar.\nSaldo saat ini: `${total_eq:.2f}`\nWaktu: `{now_wita.strftime('%H:%M')} WITA`")
+            send_telegram_alert(f"💓 *Heartbeat AI*\nMesin masih aktif memantau pasar.\nSaldo saat ini: `${total_eq:.2f}`\nWaktu: `{now_wita.strftime('%H:%M')} WITA`")
             st.session_state['last_tg_heartbeat'] = now_wita
-
-    st.success(f"🟢 **MESIN AI AKTIF** | Pemindaian pasar terakhir selesai pada: **{now_wita.strftime('%H:%M:%S')} WITA**")
 
     WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'SUI/USDT', 'SOL/USDT']
     macro_status, macro_score = scan_global_market()
     current_total_eq = total_eq
     max_pos_allowed = 1 if current_total_eq < 10.0 else 2
     
-    push_scan(f"🔄 Memulai siklus pemindaian market (Tren Makro: {macro_status})...", "heartbeat")
+    push_scan(f"🔄 Scan Rutin ({now_wita.strftime('%H:%M:%S')} WITA) | Tren BTC: {macro_status}", "heartbeat")
     
     # 1. AI EXIT MANAGER AGENT
     for sym, pos in list(st.session_state['active_trades'].items()):
@@ -264,11 +280,7 @@ def autonomous_trading_loop():
                 st.rerun()
         except Exception as e: pass
 
-    # 2. AI OPPORTUNITY SCANNER AGENT
-    if macro_score < 0:
-        push_scan("⚠️ Makro Agen: BTC Bearish. Mengaktifkan pengaman darurat (Skip All).", "blocked")
-        return
-        
+    # 2. AI OPPORTUNITY SCANNER AGENT (UNLOCKED)
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']:
             continue
@@ -284,15 +296,16 @@ def autonomous_trading_loop():
             push_scan(f"Verdict {sym} -> SKIP (Ditolak Agen Tren 4H)", "skipped")
             continue 
             
-        vote_global = macro_score 
+        # BTC Bearish (macro_score < 0) tidak lagi otomatis memblokir, melainkan hanya mendapat nilai 0 untuk skor makro.
+        vote_global = 1.0 if macro_score > 0 else 0.0 
         vote_trend = 1.0 if data['close'] > data['ema50'] else 0.0
         vote_momentum = 1.0 if (40 <= rsi <= 65) else 0.0  
-        vote_whale = 1.0 if vol_ratio > 130 else 0.0       
+        vote_whale = 1.5 if vol_ratio > 130 else 0.0  # Whale punya bobot 1.5 (sangat kuat)
         
         W = st.session_state['ai_weights']
-        total_score = (vote_global * W['global_trend_agent']) + (vote_trend * W['local_trend_agent']) + (vote_momentum * W['momentum_agent'])
+        total_score = (vote_global * W['global_trend_agent']) + (vote_trend * W['local_trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_whale * W['volume_whale_agent'])
         
-        threshold = 2.0 
+        threshold = 2.5 # Harus mencapai skor 2.5. Jika BTC Bearish (0), koin masih bisa dibeli jika Tren (1.0) + Whale (1.5) kuat!
         
         push_scan(f"Check {sym} | Chg: {chg:+.1f}% | RSI: {rsi:.1f} | Score: {total_score:.2f}", "info")
         
@@ -315,12 +328,8 @@ def autonomous_trading_loop():
             except Exception as e:
                 push_scan(f"Gagal order {sym}: {str(e)}", "blocked")
 
-col_left, col_right = st.columns(2)
-with col_left:
-    st.markdown("**🧠 Jaringan Saraf Keputusan (Log)**")
-    st.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
-with col_right:
-    st.markdown("**🔍 Scanner Telemetry Multi-Agen**")
-    st.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
+    # Render Panel
+    log_container.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
+    scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
 
 autonomous_trading_loop()

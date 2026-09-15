@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.6 (Expanded Log)", 
+    page_title="Deep AI Swing Pro v6.7 (Dynamic Top Scanner)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -36,22 +36,6 @@ WITA = pytz.timezone('Asia/Makassar')
 
 def get_wita_time():
     return datetime.now(WITA).strftime("%H:%M:%S")
-
-def send_telegram_alert(message):
-    try:
-        token = st.secrets.get("TELEGRAM_BOT_TOKEN", "").strip()
-        chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "").strip()
-        if not token or not chat_id:
-            return False
-        
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        data = urllib.parse.urlencode({"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}).encode("utf-8")
-        req = urllib.request.Request(url, data=data, method="POST")
-        
-        with urllib.request.urlopen(req, timeout=5) as response:
-            return response.status == 200
-    except Exception as e:
-        return False
 
 def load_ai_weights():
     default_weights = {
@@ -101,7 +85,6 @@ if 'logs' not in st.session_state: st.session_state['logs'] = []
 if 'scan_reports' not in st.session_state: st.session_state['scan_reports'] = []
 if 'active_trades' not in st.session_state: st.session_state['active_trades'] = {}
 if 'is_running' not in st.session_state: st.session_state['is_running'] = False
-if 'last_tg_heartbeat' not in st.session_state: st.session_state['last_tg_heartbeat'] = None
 
 if 'ai_weights' not in st.session_state: 
     st.session_state['ai_weights'] = load_ai_weights()
@@ -129,7 +112,6 @@ def push_scan(msg, status="info"):
     elif status == "warning": color = "#f2cc60"
     elif status == "heartbeat": color = "#d2a8ff"
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
-    # DIPERBESAR: Riwayat scan dinaikkan menjadi maksimal 20 baris
     if len(st.session_state['scan_reports']) > 20: st.session_state['scan_reports'].pop()
 
 @st.cache_data(ttl=300) 
@@ -172,24 +154,22 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.6")
-    st.write("Mode: **Expanded Scan Log**")
+    st.title("🧠 Deep AI Brain v6.7")
+    st.write("Mode: **Dynamic Top Scanner**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
-        push_log("V6.6 Expanded AI Aktif!", "system")
+        push_log("V6.7 Dynamic AI Aktif!", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
-        st.session_state['last_tg_heartbeat'] = None
         push_log("Sistem AI Halted.", "warn")
         st.rerun()
 
-st.header("⚡ AI Swing Pro (Expanded Telemetry)")
+st.header("⚡ AI Swing Pro (Dynamic Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -200,7 +180,7 @@ st.markdown("---")
 if not st.session_state['is_running']:
     st.warning(f"⏸️ **SISTEM DIJEDA** | Klik 'Aktifkan AI' untuk mulai.")
 else:
-    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar 24/7 (Riwayat scan ditampilkan 20 baris).")
+    st.success(f"🟢 **MESIN AI AKTIF** | Memindai koin-koin berpotensi tinggi dari kategori Volume & Gainer 24/7.")
 
 col_left, col_right = st.columns(2)
 with col_left:
@@ -219,12 +199,14 @@ def autonomous_trading_loop():
         
     now_wita = datetime.now(WITA)
     
-    WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'SUI/USDT', 'SOL/USDT']
+    # Menargetkan koin likuid teratas (Kategori Populer, Gainer, dan Volume Tinggi)
+    WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT', 'PEPE/USDT', 'DOGE/USDT']
+    
     macro_status, macro_score = scan_global_market()
     current_total_eq = total_eq
     max_pos_allowed = 1 if current_total_eq < 10.0 else 2
     
-    push_scan(f"🔄 Scan Rutin ({now_wita.strftime('%H:%M:%S')} WITA) | BTC: {macro_status}", "heartbeat")
+    push_scan(f"🔄 Scan Dynamic Top Market ({now_wita.strftime('%H:%M:%S')} WITA) | BTC: {macro_status}", "heartbeat")
     
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:

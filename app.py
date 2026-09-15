@@ -1,5 +1,4 @@
-def create_app_code():
-    code = """import streamlit as st
+import streamlit as st
 import ccxt
 import pandas as pd
 import numpy as np
@@ -15,7 +14,7 @@ st.set_page_config(
 )
 
 # Custom CSS Tampilan Terminal AI Swarm (Disederhanakan)
-st.markdown(\"""
+st.markdown("""
     <style>
     .main { background-color: #05070a; color: #f0f6fc; }
     div.stMetric {
@@ -43,7 +42,7 @@ st.markdown(\"""
     }
     .ai-agent { font-weight: bold; color: #00FF7F; }
     </style>
-\""", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # File Penyimpanan Otak AI Universal
 MEMORY_FILE = "universal_brain_lite.json"
@@ -269,9 +268,3 @@ with c_right:
     for log in st.session_state['swarm_logs']: st.markdown(log, unsafe_allow_html=True)
     
 run_universal_lite_loop()
-"""
-    with open("/mnt/data/app.py", "w") as f:
-        f.write(code)
-    return "app.py generated successfully"
-
-create_app_code()

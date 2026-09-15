@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v7.0 (High-Reasoning)", 
+    page_title="Deep AI Swing Pro v7.0.1 (High-Reasoning)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -134,29 +134,23 @@ def scan_global_market():
 @st.cache_data(ttl=60)
 def fetch_high_reasoning_indicators(symbol):
     try:
-        # Tarik data lebih panjang untuk analisis mendalam (High-Reasoning)
         ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=200)
         df_1h = pd.DataFrame(ohlcv_1h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df_1h['ema20'] = df_1h['close'].ewm(span=20).mean()
         df_1h['ema50'] = df_1h['close'].ewm(span=50).mean()
         
-        # RSI 14
         delta = df_1h['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         df_1h['rsi'] = 100 - (100 / (1 + rs))
         
-        # Bollinger Bands untuk Volatilitas & Titik Pantul
         df_1h['bb_mid'] = df_1h['close'].rolling(window=20).mean()
         df_1h['bb_std'] = df_1h['close'].rolling(window=20).std()
         df_1h['bb_lower'] = df_1h['bb_mid'] - (df_1h['bb_std'] * 2)
         df_1h['bb_upper'] = df_1h['bb_mid'] + (df_1h['bb_std'] * 2)
-        
-        # Volume Whale Analysis (SMA 20 Volume)
         df_1h['vol_sma20'] = df_1h['vol'].rolling(window=20).mean()
         
-        # Multi-Timeframe 4H Validation
         ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=50)
         df_4h = pd.DataFrame(ohlcv_4h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df_4h['ema20'] = df_4h['close'].ewm(span=20).mean()
@@ -170,14 +164,14 @@ def fetch_high_reasoning_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v7.0")
+    st.title("🧠 Deep AI Brain v7.0.1")
     st.write("Mode: **High-Reasoning Engine**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("V7.0 High-Reasoning AI Aktif (Memanfaatkan Kapasitas Cloud Optimal).", "system")
+        push_log("V7.0.1 High-Reasoning AI Aktif.", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -196,7 +190,7 @@ st.markdown("---")
 if not st.session_state['is_running']:
     st.warning(f"⏸️ **SISTEM DIJEDA** | Klik 'Aktifkan AI' untuk mulai.")
 else:
-    st.success(f"🟢 **MESIN AI AKTIF (HIGH-REASONING)** | Menggunakan analisis multi-timeframe & konvergensi mendalam.")
+    st.success(f"🟢 **MESIN AI AKTIF (HIGH-REASONING)** | Menerapkan analisis multi-timeframe & konvergensi berlapis.")
 
 col_left, col_right = st.columns(2)
 with col_left:
@@ -214,17 +208,13 @@ def autonomous_trading_loop():
         return
         
     now_wita = datetime.now(WITA)
-    
-    # Watchlist Diperluas dengan Koin Likuiditas Tinggi Pilihan
     WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT']
-    
     macro_status, macro_score = scan_global_market()
     current_total_eq = total_eq
     max_pos_allowed = 1 if current_total_eq < 10.0 else 2
     
     push_scan(f"🔄 Deep Reasoning Scan ({now_wita.strftime('%H:%M:%S')} WITA) | Makro: {macro_status}", "heartbeat")
     
-    # 1. AI EXIT MANAGER AGENT (Trailing & Stop Loss Cerdas)
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:
             current_price = float(exchange.fetch_ticker(sym)['last'])
@@ -254,14 +244,13 @@ def autonomous_trading_loop():
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
-                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt:.2f)} ({pnl_pct:.2f}%)", "loss")
+                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%)", "loss")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
                 st.rerun()
         except Exception as e: pass
 
-    # 2. AI HIGH-REASONING SCANNER AGENT
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']:
             continue
@@ -276,7 +265,6 @@ def autonomous_trading_loop():
         ema50 = data['ema50']
         bb_lower = data['bb_lower']
         
-        # Penalaran Multi-Agen Berlapis
         if not data['is_4h_uptrend']:
             push_scan(f"Verdict {sym} -> SKIP (Struktur 4H Belum Uptrend)", "skipped")
             continue 
@@ -284,8 +272,8 @@ def autonomous_trading_loop():
         vote_global = macro_score 
         vote_local_trend = 1.5 if (close_price > ema20 and ema20 > ema50) else 0.5
         vote_momentum = 1.2 if (42 <= rsi <= 68) else 0.0  
-        vote_volatility = 1.3 if close_price <= bb_lower * 1.015 else 0.8 # Mendeteksi area pantul bawah Bollinger Bands
-        vote_whale = 1.8 if vol_ratio > 140 else 0.0 # Deteksi akumulasi volume besar
+        vote_volatility = 1.3 if close_price <= bb_lower * 1.015 else 0.8 
+        vote_whale = 1.8 if vol_ratio > 140 else 0.0 
         
         W = st.session_state['ai_weights']
         total_score = (vote_global * W['global_trend_agent']) + \
@@ -294,8 +282,7 @@ def autonomous_trading_loop():
                       (vote_volatility * W['volatility_agent']) + \
                       (vote_whale * W['volume_whale_agent'])
         
-        threshold = 3.8 # Ambang batas kecerdasan ketat untuk memastikan kualitas sinyal tinggi
-        
+        threshold = 3.8 
         push_scan(f"Reasoning {sym} | RSI: {rsi:.1f} | Vol: {vol_ratio:.0f}% | Score: {total_score:.2f}", "info")
         
         if total_score >= threshold and len(st.session_state['active_trades']) < max_pos_allowed and usdt_free >= 2.5:

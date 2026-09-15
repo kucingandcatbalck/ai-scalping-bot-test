@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 import pytz
 import json
 import os
+import requests
 
-# Konfigurasi Halaman & Tema Terminal Institusional AI (32-Day Autonomous Mode)
+# Konfigurasi Halaman & Tema Terminal Institusional AI (Telegram Edition)
 st.set_page_config(
-    page_title="Deep AI Swing Pro v4.0 (Autonomous)", 
+    page_title="Deep AI Swing Pro v5.0 (Telegram)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -30,11 +31,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-MEMORY_FILE = "ai_deep_autonomous_v4.json"
+MEMORY_FILE = "ai_deep_autonomous_v5.json"
 WITA = pytz.timezone('Asia/Makassar')
 
 def get_wita_time():
     return datetime.now(WITA).strftime("%H:%M:%S")
+
+# --- TELEGRAM NOTIFIER FUNCTION ---
+def send_telegram_alert(message):
+    try:
+        token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
+        if token and chat_id:
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+            requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        pass
 
 def load_ai_weights():
     default_weights = {
@@ -109,7 +122,7 @@ def push_log(msg, ltype="system"):
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
     if len(st.session_state['logs']) > 150: st.session_state['logs'].pop()
 
-# --- AI AGENT 1: GLOBAL MARKET SCANNER (BTC 1H & 4H) ---
+# --- AI AGENT 1: GLOBAL MARKET SCANNER ---
 @st.cache_data(ttl=300) 
 def scan_global_market():
     try:
@@ -130,11 +143,10 @@ def scan_global_market():
             return "KONSOLIDASI ⚖️", 0.0
     except: return "UNKNOWN", 0.0
 
-# --- AI AGENT 2-6: DEEP MULTI-TIMEFRAME ALTCOIN SCANNER ---
+# --- AI AGENT 2-6: MULTI-TIMEFRAME ALTCOIN SCANNER ---
 @st.cache_data(ttl=60)
 def fetch_deep_indicators(symbol):
     try:
-        # Data 1H untuk eksekusi presisi
         ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=150)
         df_1h = pd.DataFrame(ohlcv_1h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df_1h['ema50'] = df_1h['close'].ewm(span=50).mean()
@@ -150,7 +162,6 @@ def fetch_deep_indicators(symbol):
         df_1h['bb_lower'] = df_1h['bb_mid'] - (df_1h['bb_std'] * 2) 
         df_1h['vol_sma20'] = df_1h['vol'].rolling(window=20).mean()
         
-        # Konfirmasi Tren 4H (Multi-Timeframe Confluence)
         ohlcv_4h = exchange.fetch_ohlcv(symbol, timeframe='4h', limit=30)
         df_4h = pd.DataFrame(ohlcv_4h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         df_4h['ema20'] = df_4h['close'].ewm(span=20).mean()
@@ -162,33 +173,34 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v4.0")
-    st.write("Mode: **32-Day Autonomous Persistence**")
+    st.title("🧠 Deep AI Brain v5.0")
+    st.write("Mode: **Autonomous + Telegram Bot**")
     
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Global:** {macro_status}")
     
-    if st.button("▶️ AKTIFKAN AUTONOMOUS AI", use_container_width=True):
+    if st.button("▶️ AKTIFKAN AI & TELEGRAM", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("Autonomous AI Diaktifkan. Siap berjalan 24/7 di Redfinger...", "system")
+        push_log("Autonomous AI & Telegram Notifier Aktif!", "system")
+        send_telegram_alert("🚀 *AI Swing Pro v5.0 Berhasil Diaktifkan!*\nBot mulai memantau market 24/7.")
         st.rerun()
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
         st.session_state['is_running'] = False
         push_log("Sistem AI Halted.", "warn")
+        send_telegram_alert("⚠️ *AI Swing Pro Dihentikan Manual oleh User.*")
         st.rerun()
     
     st.markdown("---")
-    st.markdown("**🧠 Status Bobot Saraf Jangka Panjang:**")
+    st.markdown("**🧠 Status Bobot Jangka Panjang:**")
     W = st.session_state['ai_weights']
     st.progress(min(1.0, W['global_trend_agent']/3.0), text=f"Global Market: {W['global_trend_agent']:.2f}")
     st.progress(min(1.0, W['local_trend_agent']/3.0), text=f"Local Trend: {W['local_trend_agent']:.2f}")
     st.progress(min(1.0, W['momentum_agent']/3.0), text=f"Momentum: {W['momentum_agent']:.2f}")
     st.progress(min(1.0, W['volume_whale_agent']/3.0), text=f"Whale Vol: {W['volume_whale_agent']:.2f}")
 
-# Batas Maksimal Posisi Adaptif Otomatis Berdasarkan Saldo
 adaptive_max_pos = 1 if total_eq < 10.0 else (2 if total_eq < 25.0 else 3)
 
-st.header("⚡ AI Swing Pro (32-Day Autonomous Engine)")
+st.header("⚡ AI Swing Pro (Autonomous + Telegram)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -213,22 +225,20 @@ def autonomous_trading_loop():
             pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             time_held = datetime.now(WITA) - datetime.fromisoformat(pos['time'])
             
-            # --- DYNAMIC TRAILING STOP AGENT ---
-            # Jika profit menyentuh +1.8%, geser Stop Loss ke harga modal (Breakeven) untuk proteksi mutlak
+            # Trailing Stop Breakeven
             if pnl_pct >= 1.8 and not pos.get('trailing_breakeven_active', False):
-                pos['sl'] = pos['entry'] # Geser SL ke harga beli awal
+                pos['sl'] = pos['entry']
                 pos['trailing_breakeven_active'] = True
                 W_agent = st.session_state['ai_weights']
                 W_agent['trailing_activations'] += 1
                 save_ai_weights(W_agent)
-                push_log(f"🛡️ TRAILING STOP {sym}: Profit +{pnl_pct:.2f}% tercapai! SL digeser ke Breakeven (${pos['entry']:.4f}).", "trail")
+                push_log(f"🛡️ TRAILING STOP {sym}: Profit +{pnl_pct:.2f}%! SL digeser ke Breakeven.", "trail")
+                send_telegram_alert(f"🛡️ *Trailing Stop Aktif*\nToken: `{sym}`\nProfit menyentuh +{pnl_pct:.2f}%. SL diamankan ke harga modal.")
 
-            # Jika profit makin tinggi (+3.5%), kunci trailing stop lebih ketat
             if pnl_pct >= 3.5:
-                new_locked_sl = current_price * 0.985 # Kunci profit di bawah harga sekarang 1.5%
+                new_locked_sl = current_price * 0.985
                 if new_locked_sl > pos['sl']:
                     pos['sl'] = new_locked_sl
-            # -----------------------------------
             
             dynamic_tp = pos['entry'] * 1.045 if macro_score > 0 else pos['entry'] * 1.025
             
@@ -247,22 +257,23 @@ def autonomous_trading_loop():
                     W['total_profit_usdt'] += pnl_usdt
                     W['global_trend_agent'] = min(3.0, W['global_trend_agent'] + 0.1)
                     W['local_trend_agent'] = min(3.0, W['local_trend_agent'] + (0.1 * pos['votes']['trend']))
-                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%). Bobot Saraf AI Ditingkatkan.", "profit")
+                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%).", "profit")
+                    send_telegram_alert(f"✅ *{reason}*\nToken: `{sym}`\nCuan: `+${pnl_usdt:.2f} (+{pnl_pct:.2f}%)`")
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
                     W['local_trend_agent'] = max(0.5, W['local_trend_agent'] - (0.05 * pos['votes']['trend']))
-                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%). AI Menyesuaikan Parameter.", "loss")
+                    push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%).", "loss")
+                    send_telegram_alert(f"❌ *{reason}*\nToken: `{sym}`\nLoss: `-${abs(pnl_usdt):.2f} ({pnl_pct:.2f}%)`")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
                 st.rerun()
         except Exception as e: pass
 
-    # 2. ENTRY PHASE (Autonomous Multi-Timeframe Entry Engine)
+    # 2. ENTRY PHASE
     if len(st.session_state['active_trades']) < max_pos_allowed and usdt_free >= 2.5:
         if macro_score < 0:
-            push_log(f"⚠️ BTC Global BEARISH. AI Memblokir Semua Sinyal Masuk.", "warn")
             return
             
         for sym in WATCHLIST:
@@ -271,7 +282,6 @@ def autonomous_trading_loop():
             data = fetch_deep_indicators(sym)
             if data is None: continue
             
-            # Filter tambahan: Wajib searah dengan tren makro 4H
             if not data['is_4h_uptrend']: continue 
             
             vote_global = macro_score 
@@ -293,7 +303,6 @@ def autonomous_trading_loop():
             
             if total_score >= threshold:
                 try:
-                    # --- DYNAMIC COMPOUND & CONVICTION SIZING ---
                     conviction_ratio = min(1.8, total_score / max(1.0, threshold))
                     safety_min = 2.20
                     
@@ -309,12 +318,13 @@ def autonomous_trading_loop():
                         'entry': data['close'],
                         'qty': alloc / data['close'],
                         'alloc': alloc,
-                        'sl': data['close'] * 0.965, # Stop Loss awal 3.5%
+                        'sl': data['close'] * 0.965,
                         'time': datetime.now(WITA).isoformat(),
                         'trailing_breakeven_active': False,
                         'votes': {'trend': vote_trend, 'momentum': vote_momentum}
                     }
-                    push_log(f"🎯 AUTONOMOUS BUY {sym} @ {data['close']:.4f} | Size: ${alloc:.2f} | Score: {total_score:.2f}", "system")
+                    push_log(f"🎯 AUTONOMOUS BUY {sym} @ {data['close']:.4f} | Size: ${alloc:.2f}", "system")
+                    send_telegram_alert(f"🎯 *AI Membeli Koin Baru!*\nToken: `{sym}`\nHarga: `{data['close']:.4f}`\nModal: `${alloc:.2f}`")
                     st.rerun()
                     break
                 except Exception as e: pass

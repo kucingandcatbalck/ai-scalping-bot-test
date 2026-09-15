@@ -8,7 +8,7 @@ import json
 import os
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v10 (Live Matrix)", 
+    page_title="Deep AI Swing Pro v10.1 (Continuous)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -103,7 +103,6 @@ def push_scan(msg, status="info"):
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
     if len(st.session_state['scan_reports']) > 30: st.session_state['scan_reports'].pop()
 
-# MENGGUNAKAN CCXT NATIVE AGAR TIDAK DIBLOKIR TRADINGVIEW
 @st.cache_data(ttl=120) 
 def scan_global_market_native():
     try:
@@ -128,40 +127,34 @@ def fetch_orderbook_pressure(symbol):
         return bids_vol / asks_vol
     except: return 1.0
 
-# 1 REQUEST SUPER EFISIEN UNTUK SEMUA INDIKATOR
 def analyze_coin_native(symbol):
     try:
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=200)
         df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         close = df['close'].iloc[-1]
         
-        # EMA
         ema20 = df['close'].ewm(span=20, adjust=False).mean().iloc[-1]
         ema50 = df['close'].ewm(span=50, adjust=False).mean().iloc[-1]
-        ema80 = df['close'].ewm(span=80, adjust=False).mean().iloc[-1]   # Setara EMA20 di 4H
-        ema200 = df['close'].ewm(span=200, adjust=False).mean().iloc[-1] # Setara EMA50 di 4H
+        ema80 = df['close'].ewm(span=80, adjust=False).mean().iloc[-1]   
+        ema200 = df['close'].ewm(span=200, adjust=False).mean().iloc[-1] 
         is_4h_uptrend = close > ema80 and ema80 > ema200
         
-        # RSI
         delta = df['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean().iloc[-1]
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean().iloc[-1]
         rs = gain / loss if loss != 0 else 0
         rsi = 100 - (100 / (1 + rs)) if loss != 0 else 100
         
-        # BB & Volume
         bb_std = df['close'].rolling(window=20).std().iloc[-1]
         bb_lower = df['close'].rolling(window=20).mean().iloc[-1] - (2 * bb_std)
         vol_sma = df['vol'].rolling(window=20).mean().iloc[-1]
         vol_ratio = (df['vol'].iloc[-1] / vol_sma) * 100 if vol_sma > 0 else 100
         
-        # MACD
         ema12 = df['close'].ewm(span=12, adjust=False).mean()
         ema26 = df['close'].ewm(span=26, adjust=False).mean()
         hist = (ema12 - ema26) - (ema12 - ema26).ewm(span=9, adjust=False).mean()
         macd_growth = hist.iloc[-1] > hist.iloc[-2] and hist.iloc[-1] > 0
         
-        # ATR
         tr = np.maximum(df['high'] - df['low'], np.abs(df['high'] - df['close'].shift()))
         atr = tr.rolling(14).mean().iloc[-1]
         atr_pct = (atr / close) * 100
@@ -174,14 +167,14 @@ def analyze_coin_native(symbol):
     except Exception as e: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v10")
-    st.write("Mode: **Live Stream Matrix** ⚡")
+    st.title("🧠 Deep AI Brain v10.1")
+    st.write("Mode: **Continuous Scanner** ⚡")
     macro_status, macro_score = scan_global_market_native()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("V10 Live Matrix Aktif! Memanfaatkan 100% CPU Redfinger.", "system")
+        push_log("V10.1 Continuous Scan Aktif! Memindai pasar tanpa henti.", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -189,7 +182,7 @@ with st.sidebar:
         push_log("Sistem AI Halted.", "warn")
         st.rerun()
 
-st.header("⚡ AI Swing Pro (Live Matrix Telemetry)")
+st.header("⚡ AI Swing Pro (Continuous Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -205,7 +198,8 @@ with col_right:
     st.markdown("**🔍 Live Matrix Scanner (Real-Time)**")
     scan_container = st.empty()
 
-@st.fragment(run_every=60)
+# DI SINI KUNCI PERUBAHANNYA: run_every=3 (Detik), membuat bot memindai TERUS-MENERUS
+@st.fragment(run_every=3)
 def autonomous_trading_loop():
     if not st.session_state['is_running']: 
         log_container.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
@@ -216,7 +210,7 @@ def autonomous_trading_loop():
     WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT', 'PEPE/USDT', 'DOGE/USDT', 'LINK/USDT', 'AVAX/USDT']
     
     macro_status, macro_score = scan_global_market_native()
-    push_scan(f"🔄 Memulai Live Matrix Scan... | Makro: {macro_status}", "heartbeat")
+    push_scan(f"🔄 Continuous Scan... | Makro: {macro_status}", "heartbeat")
     scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
     
     # 1. AI EXIT MANAGER
@@ -260,8 +254,6 @@ def autonomous_trading_loop():
             
         data = analyze_coin_native(sym)
         if data is None: 
-            push_scan(f"⚠️ Gagal menarik data {sym}, skip.", "blocked")
-            scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
             continue
         
         rsi, close_price, atr_pct = data['rsi'], data['close'], data['atr_pct']
@@ -281,14 +273,12 @@ def autonomous_trading_loop():
         threshold = 3.8
         
         push_scan(f"Eval {sym} | RSI: {rsi:.1f} | ATR: {atr_pct:.1f}% | Score: {total_score:.2f}", "info")
-        # UPDATE UI SECARA LANGSUNG DI SETIAP LOOP KOIN!
         scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
         
         if total_score >= threshold and len(st.session_state['active_trades']) < (1 if total_eq < 10 else 2) and usdt_free >= 2.5:
-            # Orderbook hanya ditarik JIKA koin lolos (Menghemat waktu scan!)
             ob_ratio = fetch_orderbook_pressure(sym)
             if ob_ratio < 0.7:
-                push_scan(f"🛑 REJECTED {sym} -> Orderbook Asks Dominan (Rasio: {ob_ratio:.1f}x)", "blocked")
+                push_scan(f"🛑 REJECTED {sym} -> Orderbook Asks Dominan", "blocked")
                 scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
                 continue
                 

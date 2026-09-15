@@ -82,9 +82,19 @@ except Exception as e:
 
 # State Management
 if 'logs' not in st.session_state: st.session_state['logs'] = []
-if 'ai_weights' not in st.session_state: st.session_state['ai_weights'] = load_ai_weights()
 if 'active_trades' not in st.session_state: st.session_state['active_trades'] = {}
 if 'is_running' not in st.session_state: st.session_state['is_running'] = False
+
+# Auto-Patch Memori AI (Mencegah KeyError dari sisa kode lama)
+if 'ai_weights' not in st.session_state: 
+    st.session_state['ai_weights'] = load_ai_weights()
+else:
+    # Memaksa Streamlit menambahkan "Otak" baru jika belum ada di memori lamanya
+    default_w = load_ai_weights()
+    for key in default_w.keys():
+        if key not in st.session_state['ai_weights']:
+            st.session_state['ai_weights'][key] = default_w[key]
+            
 
 def push_log(msg, ltype="system"):
     t_str = get_wita_time()

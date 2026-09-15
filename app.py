@@ -5,9 +5,9 @@ from datetime import datetime
 import json
 import os
 
-# Konfigurasi Halaman & Tema Terminal Profesional
+# Konfigurasi Halaman & Tema Super Cepat
 st.set_page_config(
-    page_title="Autonomous HFT AI Scalper",
+    page_title="Unrestricted AI Scalper",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -35,7 +35,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-MEMORY_FILE = "autonomous_hft_brain.json"
+MEMORY_FILE = "unrestricted_ai_brain.json"
 
 def load_ai_brain():
     if os.path.exists(MEMORY_FILE):
@@ -73,7 +73,7 @@ except Exception as e:
 # State Management
 if 'trade_history' not in st.session_state: st.session_state['trade_history'] = []
 if 'active_positions' not in st.session_state: st.session_state['active_positions'] = {}
-if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = ['<div class="agent-pipeline"><span class="ai-agent">[System]</span> Autonomous HFT AI Core Online.</div>']
+if 'swarm_logs' not in st.session_state: st.session_state['swarm_logs'] = ['<div class="agent-pipeline"><span class="ai-agent">[System]</span> Unrestricted AI Core Online. Ready to fire...</div>']
 if 'ai_brain' not in st.session_state: st.session_state['ai_brain'] = load_ai_brain()
 if 'bot_active' not in st.session_state: st.session_state['bot_active'] = False  
 if 'initial_balance' not in st.session_state: st.session_state['initial_balance'] = total_eq if total_eq > 0 else 1.0
@@ -85,39 +85,15 @@ def add_log(msg, log_type="normal"):
     st.session_state['swarm_logs'].insert(0, log_html)
     if len(st.session_state['swarm_logs']) > 5: st.session_state['swarm_logs'].pop()
 
-# --- AUTONOMOUS HFT QUANT ENGINE ---
-@st.cache_data(ttl=2) 
-def fetch_hft_signal(symbol):
-    try:
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1m', limit=10)
-        if not ohlcv or len(ohlcv) < 5: return False, 50.0, 0.0
-        
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        closes = df['close']
-        
-        # Fast RSI
-        delta = closes.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=4).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=4).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        current_rsi = rsi.iloc[-1]
-        
-        volatility = ((df['high'].iloc[-1] - df['low'].iloc[-1]) / df['low'].iloc[-1]) * 100
-        is_momentum_up = closes.iloc[-1] > closes.iloc[-2]
-        
-        return is_momentum_up, current_rsi, volatility
-    except: return False, 50.0, 0.0
-
 with st.sidebar:
-    st.markdown("<h3 style='color: #00FF7F;'>⚡ HFT AI CONTROL</h3>", unsafe_allow_html=True)
-    if st.button("🚀 START HFT AI", use_container_width=True):
+    st.markdown("<h3 style='color: #00FF7F;'>⚡ UNRESTRICTED AI</h3>", unsafe_allow_html=True)
+    if st.button("🚀 START BOT", use_container_width=True):
         st.session_state['bot_active'] = True
-        add_log("Autonomous HFT Engine Activated.")
+        add_log("Bot diaktifkan tanpa batas. Mengeksekusi pasar...")
         st.rerun()
-    if st.button("🛑 STOP AI", use_container_width=True):
+    if st.button("🛑 STOP BOT", use_container_width=True):
         st.session_state['bot_active'] = False
-        add_log("Halted by user. Liquidating...", "alert")
+        add_log("Dihentikan. Melikuidasi...", "alert")
         if st.session_state['active_positions']:
             for s, p in list(st.session_state['active_positions'].items()):
                 try:
@@ -129,80 +105,61 @@ with st.sidebar:
             st.session_state['active_positions'] = {}
         st.rerun()
 
-status_indicator = "🟢 AUTONOMOUS HFT" if st.session_state['bot_active'] else "🔴 OFFLINE"
+status_indicator = "🟢 RUNNING" if st.session_state['bot_active'] else "🔴 OFFLINE"
 active_count = len(st.session_state['active_positions'])
-max_pos = 1 if usdt_free < 8.0 else 2
+
+# POSISI OTOMATIS MENGIKUTI MODAL: Setiap kelipatan $4 dari saldo bebas, slot koin bertambah (maksimal 10 posisi serentak)
+max_pos = max(1, min(10, int(usdt_free / 4)))
+
 pnl_pct = ((total_eq - st.session_state['initial_balance']) / st.session_state['initial_balance']) * 100 if st.session_state['initial_balance'] > 0 else 0.0
 
 c1, c2, c3 = st.columns(3)
-c1.metric("Status AI", status_indicator)
+c1.metric("Status", status_indicator)
 c2.metric("Saldo", f"${total_eq:,.2f}", f"{pnl_pct:+.2f}%")
-c3.metric("Posisi", f"{active_count} / {max_pos}")
+c3.metric("Posisi Aktif", f"{active_count} / {max_pos} Slot")
 st.markdown("---")
 
 @st.fragment(run_every=1)
-def run_autonomous_hft_loop():
+def run_unrestricted_loop():
     if not st.session_state.get('bot_active', False): return
 
     try:
-        # --- FASE 1: SMART HFT SCANNING ---
-        if active_count < max_pos and usdt_free > 5.5:
+        # --- FASE 1: AGGRESSIVE SCANNING ---
+        if active_count < max_pos and usdt_free > 3.0:
             all_tickers = exchange.fetch_tickers()
             valid_coins = []
             
             for sym, data in all_tickers.items():
                 if sym.endswith('/USDT') and sym not in st.session_state['active_positions']:
-                    vol = float(data.get('quoteVolume', 0))
                     chg = float(data.get('percentage', 0))
-                    
-                    if vol > 35000 and 0.2 < chg < 15.0: # Hindari koin pump-dump ekstrem
-                        brain = st.session_state['ai_brain'].get(sym, {'wins': 0, 'losses': 0, 'confidence': 50.0})
-                        score = (vol * chg) * (brain.get('confidence', 50.0) / 50.0)
-                        valid_coins.append({'symbol': sym, 'score': score})
+                    # Tanpa filter volume ketat, asal koin bergerak hijau langsung masuk radar
+                    if chg > 0.0:
+                        valid_coins.append({'symbol': sym, 'score': chg, 'price': float(data.get('last', 0))})
             
             if valid_coins:
                 valid_coins = sorted(valid_coins, key=lambda x: x['score'], reverse=True)
                 top_coin = valid_coins[0]['symbol']
+                price_now = valid_coins[0]['price']
                 
-                if top_coin not in st.session_state['ai_brain']:
-                    st.session_state['ai_brain'][top_coin] = {'wins': 0, 'losses': 0, 'confidence': 50.0}
+                min_cost = exchange.market(top_coin).get('limits', {}).get('cost', {}).get('min', 2.0)
                 
-                # Cek Spread/Orderbook tipis untuk proteksi slippage
-                orderbook = exchange.fetch_order_book(top_coin, limit=5)
-                if orderbook['asks'] and orderbook['bids']:
-                    best_ask = orderbook['asks'][0][0]
-                    best_bid = orderbook['bids'][0][0]
-                    spread_pct = ((best_ask - best_bid) / best_bid) * 100
-                    
-                    # Jika spread terlalu lebar (>0.15%), lewati untuk menghindari potongan rugi di awal
-                    if spread_pct > 0.15:
-                        return
-
-                is_momentum_up, rsi_val, volatility = fetch_hft_signal(top_coin)
+                # Alokasi modal dibagi rata ke slot posisi aktif berdasarkan besar modal
+                alloc = max(min_cost, round(usdt_free / max(1, max_pos - active_count) * 0.9, 2))
                 
-                if is_momentum_up and rsi_val < 70.0:
-                    min_cost = exchange.market(top_coin).get('limits', {}).get('cost', {}).get('min', 5.0)
-                    
-                    ai_conf = st.session_state['ai_brain'][top_coin]['confidence']
-                    alloc_pct = min(0.85, max(0.30, ai_conf / 100.0))
-                    alloc = max(min_cost + 0.5, round((usdt_free / max(1, max_pos - active_count)) * alloc_pct, 2))
-                    
-                    tp_pct = 0.0035 
-                    sl_pct = 0.0030 
+                tp_pct = 0.0035 # +0.35% (Target Bersih setelah fee)
+                sl_pct = 0.0030 # -0.30%
 
-                    if usdt_free >= alloc:
-                        price_now = float(orderbook['asks'][0][0]) # Gunakan harga ask aktual
-                        
-                        exchange.create_market_buy_order(top_coin, alloc, {'createMarketBuyOrderRequiresPrice': False})
-                        st.session_state['active_positions'][top_coin] = {
-                            'entry': price_now, 'amount': alloc / price_now, 'alloc': alloc,
-                            'target': price_now * (1 + tp_pct), 'sl': price_now * (1 - sl_pct),
-                            'entry_time': datetime.now(), 'highest_price': price_now
-                        }
-                        add_log(f"HFT Execute: {top_coin} (Conf: {ai_conf:.0f}%)")
-                        st.rerun()
+                if usdt_free >= alloc:
+                    exchange.create_market_buy_order(top_coin, alloc, {'createMarketBuyOrderRequiresPrice': False})
+                    st.session_state['active_positions'][top_coin] = {
+                        'entry': price_now, 'amount': alloc / price_now, 'alloc': alloc,
+                        'target': price_now * (1 + tp_pct), 'sl': price_now * (1 - sl_pct),
+                        'entry_time': datetime.now(), 'highest_price': price_now
+                    }
+                    add_log(f"BUY Executed: {top_coin} (${alloc:.2f})")
+                    st.rerun()
 
-        # --- FASE 2: HFT MONITORING & TRAILING MOMENTUM ---
+        # --- FASE 2: FAST MONITORING & 15S TIME-STOP ---
         if st.session_state['active_positions']:
             for sym, pos in list(st.session_state['active_positions'].items()):
                 ticker = exchange.fetch_ticker(sym)
@@ -210,13 +167,13 @@ def run_autonomous_hft_loop():
                 pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
                 time_held = (datetime.now() - pos['entry_time']).total_seconds()
                 
-                # Trailing Lock Dinamis: Jika harga meroket, amankan profit secara agresif
+                # Trailing Lock Sederhana
                 if current_price > pos['highest_price']:
                     pos['highest_price'] = current_price
-                    if pnl_pct >= 0.18: 
-                        pos['sl'] = pos['entry'] * 1.001 # Lock profit di atas harga modal
+                    if pnl_pct >= 0.15: 
+                        pos['sl'] = pos['entry'] * 1.001
 
-                # Kondisi Keluar: TP Tercapai, SL Tersentuh, atau 15 Detik Berakhir
+                # Keluar seketika saat TP, SL, atau waktu 15 detik habis
                 if current_price >= pos['target'] or current_price <= pos['sl'] or time_held >= 15:
                     try:
                         sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['amount'] * 0.999)
@@ -224,20 +181,10 @@ def run_autonomous_hft_loop():
 
                     exchange.create_market_sell_order(sym, sell_amt)
                     
-                    # Update Otak AI Mandiri
-                    brain = st.session_state['ai_brain'][sym]
-                    if pnl_pct > 0.12: 
-                        brain['wins'] += 1
-                        brain['confidence'] = min(99.0, brain['confidence'] + 12.0)
-                        add_log(f"AI Success on {sym} ({pnl_pct:+.2f}%)")
-                    else: 
-                        brain['losses'] += 1
-                        brain['confidence'] = max(10.0, brain['confidence'] - 15.0)
-                        add_log(f"AI Re-adjusting {sym} ({pnl_pct:+.2f}%)", "alert")
+                    if pnl_pct > 0.10: add_log(f"Profit {sym} ({pnl_pct:+.2f}%)")
+                    else: add_log(f"Exit {sym} ({pnl_pct:+.2f}%)", "alert")
 
-                    save_ai_brain(st.session_state['ai_brain'])
-
-                    # UI History Sederhana (Hanya Persentase)
+                    # UI History: Hanya menampilkan persentase profit/loss
                     st.session_state['trade_history'].insert(0, {"Profit (%)": f"{pnl_pct:+.2f}%"})
                     st.session_state['trade_history'] = st.session_state['trade_history'][:5]
                     del st.session_state['active_positions'][sym]
@@ -252,9 +199,9 @@ with c_left:
     if st.session_state['trade_history']: 
         st.dataframe(pd.DataFrame(st.session_state['trade_history']), width='stretch', hide_index=True)
     else: 
-        st.info("HFT AI sedang memindai...")
+        st.info("Menunggu eksekusi...")
 with c_right:
-    st.markdown("**⚡ HFT AI Autonomous Stream**")
+    st.markdown("**⚡ Live Stream**")
     for log in st.session_state['swarm_logs']: st.markdown(log, unsafe_allow_html=True)
     
-run_autonomous_hft_loop()
+run_unrestricted_loop()

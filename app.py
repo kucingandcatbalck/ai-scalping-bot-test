@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 import pytz
 import json
 import os
-import requests
+import urllib.request
+import urllib.parse
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v6.4 (Ultra-Light)", 
+    page_title="Deep AI Swing Pro v6.5 (Stable)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -27,7 +28,6 @@ st.markdown("""
     .c-profit { color: #3fb950; font-weight: bold; }
     .c-loss { color: #f85149; font-weight: bold; }
     .c-warn { color: #f2cc60; font-weight: bold; }
-    .c-heartbeat { color: #d2a8ff; font-style: italic; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,15 +39,19 @@ def get_wita_time():
 
 def send_telegram_alert(message):
     try:
-        token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
-        chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
+        token = st.secrets.get("TELEGRAM_BOT_TOKEN", "").strip()
+        chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "").strip()
         if not token or not chat_id:
             return False
+        
         url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
-        res = requests.post(url, json=payload, timeout=5)
-        return res.status_code == 200
-    except: 
+        data = urllib.parse.urlencode({"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method="POST")
+        
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return response.status == 200
+    except Exception as e:
+        print(f"Telegram Error: {e}")
         return False
 
 def load_ai_weights():
@@ -75,9 +79,9 @@ def save_ai_weights(weights):
 @st.cache_resource
 def init_exchange():
     exchange = ccxt.bitget({
-        'apiKey': st.secrets.get("BITGET_API_KEY", ""),
-        'secret': st.secrets.get("BITGET_SECRET", ""),
-        'password': st.secrets.get("BITGET_PASSWORD", ""),
+        'apiKey': st.secrets.get("BITGET_API_KEY", "").strip(),
+        'secret': st.secrets.get("BITGET_SECRET", "").strip(),
+        'password': st.secrets.get("BITGET_PASSWORD", "").strip(),
         'enableRateLimit': True,
         'options': { 'defaultType': 'spot', 'createMarketBuyOrderRequiresPrice': False }
     })
@@ -115,7 +119,6 @@ def push_log(msg, ltype="system"):
     elif ltype == "loss": color = "c-loss"
     elif ltype == "warn": color = "c-warn"
     st.session_state['logs'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span class="{color}">{msg}</span></div>')
-    # OPTIMASI: Batasi log keputusan maksimal 15 baris agar UI tidak berat
     if len(st.session_state['logs']) > 15: st.session_state['logs'].pop()
 
 def push_scan(msg, status="info"):
@@ -127,7 +130,6 @@ def push_scan(msg, status="info"):
     elif status == "warning": color = "#f2cc60"
     elif status == "heartbeat": color = "#d2a8ff"
     st.session_state['scan_reports'].insert(0, f'<div class="log-line"><span class="c-time">[{t_str}]</span> <span style="color: {color};">{msg}</span></div>')
-    # OPTIMASI: Batasi riwayat scan HANYA 5 BARIS sesuai permintaan agar RAM aman
     if len(st.session_state['scan_reports']) > 5: st.session_state['scan_reports'].pop()
 
 @st.cache_data(ttl=300) 
@@ -170,16 +172,16 @@ def fetch_deep_indicators(symbol):
     except: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v6.4")
-    st.write("Mode: **Ultra-Lightweight**")
+    st.title("🧠 Deep AI Brain v6.5")
+    st.write("Mode: **Stable Native HTTP**")
     macro_status, macro_score = scan_global_market()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
         st.session_state['last_tg_heartbeat'] = datetime.now(WITA)
-        push_log("V6.4 Ultra-Lightweight AI Aktif!", "system")
-        send_telegram_alert(f"🚀 *AI Swing Pro v6.4 Berhasil Diaktifkan!*\nLaporan rutin akan dikirim otomatis setiap 1 jam.\nSaldo Awal: `${total_eq:.2f}`")
+        push_log("V6.5 Stable AI Aktif!", "system")
+        send_telegram_alert(f"🚀 *AI Swing Pro v6.5 Berhasil Diaktifkan!*\nSaldo Awal: `${total_eq:.2f}`")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -191,13 +193,13 @@ with st.sidebar:
         
     st.markdown("---")
     if st.button("💬 Test Pesan Telegram", use_container_width=True):
-        success = send_telegram_alert("✅ *Test Koneksi Berhasil!* Bot kamu sudah terhubung ke Telegram dengan sempurna.")
+        success = send_telegram_alert("✅ *Test Koneksi Berhasil!* Bot terhubung sempurna.")
         if success:
             st.success("Pesan terkirim! Cek HP kamu.")
         else:
-            st.error("Gagal! Pastikan Token & Chat ID di pengaturan Secrets sudah benar.")
+            st.error("Gagal! Periksa kembali Token / Chat ID di Secrets.")
 
-st.header("⚡ AI Swing Pro (Ultra-Light Telemetry)")
+st.header("⚡ AI Swing Pro (Stable Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -206,9 +208,9 @@ c4.metric("Total Profit", f"${st.session_state['ai_weights'].get('total_profit_u
 st.markdown("---")
 
 if not st.session_state['is_running']:
-    st.warning(f"⏸️ **SISTEM DIJEDA** | Bot sedang beristirahat. Klik 'Aktifkan AI' untuk memulai.")
+    st.warning(f"⏸️ **SISTEM DIJEDA** | Klik 'Aktifkan AI' untuk mulai.")
 else:
-    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar 24/7 di latar belakang. (Scan dibatasi 5 riwayat agar ringan)")
+    st.success(f"🟢 **MESIN AI AKTIF** | Memantau pasar 24/7.")
 
 col_left, col_right = st.columns(2)
 with col_left:
@@ -227,11 +229,9 @@ def autonomous_trading_loop():
         
     now_wita = datetime.now(WITA)
     
-    # 0. TELEGRAM HOURLY HEARTBEAT PING
     if st.session_state['last_tg_heartbeat'] is not None:
-        time_since_last_hb = now_wita - st.session_state['last_tg_heartbeat']
-        if time_since_last_hb >= timedelta(hours=1):
-            send_telegram_alert(f"💓 *Heartbeat AI*\nMesin masih aktif memantau pasar.\nSaldo saat ini: `${total_eq:.2f}`\nWaktu: `{now_wita.strftime('%H:%M')} WITA`")
+        if now_wita - st.session_state['last_tg_heartbeat'] >= timedelta(hours=1):
+            send_telegram_alert(f"💓 *Heartbeat AI*\nSaldo: `${total_eq:.2f}`\nWaktu: `{now_wita.strftime('%H:%M')} WITA`")
             st.session_state['last_tg_heartbeat'] = now_wita
 
     WATCHLIST = ['ADA/USDT', 'NEAR/USDT', 'ONDO/USDT', 'SUI/USDT', 'SOL/USDT']
@@ -239,9 +239,8 @@ def autonomous_trading_loop():
     current_total_eq = total_eq
     max_pos_allowed = 1 if current_total_eq < 10.0 else 2
     
-    push_scan(f"🔄 Scan Rutin ({now_wita.strftime('%H:%M:%S')} WITA) | Tren BTC: {macro_status}", "heartbeat")
+    push_scan(f"🔄 Scan Rutin ({now_wita.strftime('%H:%M:%S')} WITA) | BTC: {macro_status}", "heartbeat")
     
-    # 1. AI EXIT MANAGER AGENT
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:
             current_price = float(exchange.fetch_ticker(sym)['last'])
@@ -250,14 +249,14 @@ def autonomous_trading_loop():
             if pnl_pct >= 1.5 and not pos.get('trailing_breakeven_active', False):
                 pos['sl'] = pos['entry']
                 pos['trailing_breakeven_active'] = True
-                push_log(f"🛡️ TRAILING STOP {sym}: SL diamankan ke Breakeven.", "warn")
-                send_telegram_alert(f"🛡️ *Trailing Stop Aktif* `{sym}`\nSL diamankan ke harga modal.")
+                push_log(f"🛡️ TRAILING STOP {sym}: SL ke Breakeven.", "warn")
+                send_telegram_alert(f"🛡️ *Trailing Stop* `{sym}`\nSL ke harga modal.")
 
             dynamic_tp = pos['entry'] * 1.035 if macro_score > 0 else pos['entry'] * 1.02
             
             if current_price >= dynamic_tp or current_price <= pos['sl']:
                 is_win = pnl_pct > 0.1 
-                reason = "TAKE PROFIT" if is_win else "STOP LOSS / TRAILING HIT"
+                reason = "TAKE PROFIT" if is_win else "STOP LOSS"
                 
                 sell_amt = exchange.fetch_balance()['free'].get(sym.split('/')[0], pos['qty'] * 0.995)
                 exchange.create_market_sell_order(sym, sell_amt)
@@ -268,20 +267,19 @@ def autonomous_trading_loop():
                 if is_win:
                     W['win_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
-                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f} (+{pnl_pct:.2f}%)", "profit")
+                    push_log(f"✅ {reason} {sym}: +${pnl_usdt:.2f}", "profit")
                     send_telegram_alert(f"✅ *{reason}* `{sym}`\nCuan: `+${pnl_usdt:.2f}`")
                 else:
                     W['loss_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
                     push_log(f"❌ {reason} {sym}: -${abs(pnl_usdt):.2f}", "loss")
-                    send_telegram_alert(f"❌ *{reason}* `{sym}`\nLoss: `-${abs(pnl_usdt):.2f}`")
+                    send_telegram_alert(f"❌ *{reason}* `{sym}`\nLoss: `-${abs(pnl_usdt:.2f}`")
                 
                 save_ai_weights(W)
                 del st.session_state['active_trades'][sym]
                 st.rerun()
         except Exception as e: pass
 
-    # 2. AI OPPORTUNITY SCANNER AGENT
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']:
             continue
@@ -289,12 +287,11 @@ def autonomous_trading_loop():
         data = fetch_deep_indicators(sym)
         if data is None: continue
         
-        chg = data.get('chg_pct', 0.0)
         rsi = data.get('rsi', 50.0)
         vol_ratio = (data['vol'] / data['vol_sma20']) * 100 if data['vol_sma20'] > 0 else 100.0
         
         if not data['is_4h_uptrend']:
-            push_scan(f"Verdict {sym} -> SKIP (Ditolak Tren 4H)", "skipped")
+            push_scan(f"Verdict {sym} -> SKIP (Tren 4H)", "skipped")
             continue 
             
         vote_global = 1.0 if macro_score > 0 else 0.0 
@@ -306,7 +303,6 @@ def autonomous_trading_loop():
         total_score = (vote_global * W['global_trend_agent']) + (vote_trend * W['local_trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_whale * W['volume_whale_agent'])
         
         threshold = 2.5 
-        
         push_scan(f"Check {sym} | RSI: {rsi:.1f} | Score: {total_score:.2f}", "info")
         
         if total_score >= threshold and len(st.session_state['active_trades']) < max_pos_allowed and usdt_free >= 2.5:
@@ -321,14 +317,13 @@ def autonomous_trading_loop():
                     'sl': data['close'] * 0.965, 'time': now_wita.isoformat(),
                     'trailing_breakeven_active': False
                 }
-                push_log(f"🎯 EXECUTE BUY {sym} @ {data['close']:.4f} | Size: ${alloc:.2f}", "system")
-                send_telegram_alert(f"🎯 *Agen Mengeksekusi Buy!*\nToken: `{sym}`\nHarga: `{data['close']:.4f}`\nModal: `${alloc:.2f}`")
+                push_log(f"🎯 BUY {sym} @ {data['close']:.4f} | ${alloc:.2f}", "system")
+                send_telegram_alert(f"🎯 *Buy* `{sym}` | Harga: `{data['close']:.4f}`")
                 st.rerun()
                 break
             except Exception as e:
                 push_scan(f"Gagal order {sym}", "blocked")
 
-    # Render Panel
     log_container.markdown(f'<div class="log-container">{"".join(st.session_state["logs"])}</div>', unsafe_allow_html=True)
     scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
 

@@ -6,10 +6,9 @@ from datetime import datetime
 import pytz
 import json
 import os
-import time
 
 st.set_page_config(
-    page_title="Deep AI Swing Pro v12 (Daily Sniper)", 
+    page_title="Deep AI Swing Pro v12.1 (Balanced Sniper)", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -113,11 +112,12 @@ def scan_global_market_native():
         ema50 = df['close'].ewm(span=50).mean().iloc[-1]
         close = df['close'].iloc[-1]
         
+        # DILONGgARKAN: Konsolodasi dan koreksi ringan tetap diberi skor netral/positif agar bot mau melirik koin
         if close > ema20 and ema20 > ema50: return "STRONG BULLISH 🚀", 1.5
         elif close > ema20: return "BULLISH 📈", 1.0
-        elif close < ema20 and ema20 < ema50: return "BEARISH 🩸", -1.0
-        else: return "KONSOLIDASI ⚖️", 0.0
-    except: return "NORMAL ⚖️", 0.0
+        elif close < ema20 and ema20 < ema50: return "KOREKSI/SIDEWAYS ⚖️", 0.5
+        else: return "KONSOLIDASI ⚖️", 0.5
+    except: return "NORMAL ⚖️", 0.5
 
 def fetch_orderbook_pressure(symbol):
     try:
@@ -130,14 +130,6 @@ def fetch_orderbook_pressure(symbol):
 
 def analyze_coin_sniper(symbol):
     try:
-        # 1. CEK TREN MAKRO (1 JAM) UNTUK KEAMANAN
-        ohlcv_1h = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=100)
-        df_1h = pd.DataFrame(ohlcv_1h, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
-        ema80_1h = df_1h['close'].ewm(span=80, adjust=False).mean().iloc[-1]   # Representasi 4H EMA20
-        ema200_1h = df_1h['close'].ewm(span=200, adjust=False).mean().iloc[-1] # Representasi 4H EMA50
-        is_4h_uptrend = df_1h['close'].iloc[-1] > ema80_1h
-        
-        # 2. CEK MIKRO (15 MENIT) UNTUK ENTRY (DAY TRADING)
         ohlcv_15m = exchange.fetch_ohlcv(symbol, timeframe='15m', limit=150)
         df_15 = pd.DataFrame(ohlcv_15m, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
         close = df_15['close'].iloc[-1]
@@ -145,44 +137,39 @@ def analyze_coin_sniper(symbol):
         ema20_15 = df_15['close'].ewm(span=20, adjust=False).mean().iloc[-1]
         ema50_15 = df_15['close'].ewm(span=50, adjust=False).mean().iloc[-1]
         
-        # RSI 15m (Lebih responsif menangkap Oversold)
         delta = df_15['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean().iloc[-1]
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean().iloc[-1]
         rs = gain / loss if loss != 0 else 0
         rsi_15 = 100 - (100 / (1 + rs)) if loss != 0 else 100
         
-        # Bollinger Bands 15m
         bb_std = df_15['close'].rolling(window=20).std().iloc[-1]
         bb_lower = df_15['close'].rolling(window=20).mean().iloc[-1] - (2 * bb_std)
         
-        # MACD 15m
         ema12 = df_15['close'].ewm(span=12, adjust=False).mean()
         ema26 = df_15['close'].ewm(span=26, adjust=False).mean()
         hist = (ema12 - ema26) - (ema12 - ema26).ewm(span=9, adjust=False).mean()
         macd_growth = hist.iloc[-1] > hist.iloc[-2]
         
-        # ATR 15m (Volatilitas jangka pendek)
         tr = np.maximum(df_15['high'] - df_15['low'], np.abs(df_15['high'] - df_15['close'].shift()))
         atr = tr.rolling(14).mean().iloc[-1]
         atr_pct = (atr / close) * 100
         
         return {
             'close': close, 'ema20_15': ema20_15, 'ema50_15': ema50_15, 'bb_lower_15': bb_lower,
-            'rsi_15': rsi_15, 'is_4h_uptrend': is_4h_uptrend,
-            'macd_growth': macd_growth, 'atr_pct': atr_pct
+            'rsi_15': rsi_15, 'macd_growth': macd_growth, 'atr_pct': atr_pct
         }
     except Exception as e: return None
 
 with st.sidebar:
-    st.title("🧠 Deep AI Brain v12")
-    st.write("Mode: **Daily Sniper (15m)** 🎯")
+    st.title("🧠 Deep AI Brain v12.1")
+    st.write("Mode: **Balanced Sniper (15m)** 🎯")
     macro_status, macro_score = scan_global_market_native()
     st.markdown(f"**🧭 Tren Makro:** {macro_status}")
     
     if st.button("▶️ AKTIFKAN AI", use_container_width=True):
         st.session_state['is_running'] = True
-        push_log("V12 Daily Sniper Aktif! Membidik entry di grafik 15 Menit.", "system")
+        push_log("V12.1 Balanced Sniper Aktif! Lebih fleksibel mencari peluang.", "system")
         st.rerun()
         
     if st.button("⏸️ HENTIKAN SISTEM", use_container_width=True):
@@ -194,7 +181,7 @@ with st.sidebar:
     st.markdown("**🧠 Bobot AI (Self-Learning):**")
     st.code(json.dumps(st.session_state['ai_weights'], indent=2))
 
-st.header("⚡ AI Swing Pro (Daily Sniper Telemetry)")
+st.header("⚡ AI Swing Pro (Balanced Sniper Telemetry)")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Status AI", "🟢 24/7 AKTIF" if st.session_state['is_running'] else "🔴 OFFLINE")
 c2.metric("Saldo USDT", f"${usdt_free:,.2f}", f"Total: ${total_eq:,.2f}")
@@ -207,7 +194,7 @@ with col_left:
     st.markdown("**🧠 Log Keputusan (Max 30 Baris)**")
     log_container = st.empty()
 with col_right:
-    st.markdown("**🔍 15m Sniper Matrix (Real-Time)**")
+    st.markdown("**🔍 15m Balanced Matrix (Real-Time)**")
     scan_container = st.empty()
 
 @st.fragment(run_every=3)
@@ -218,30 +205,28 @@ def autonomous_trading_loop():
         return
         
     now_wita = datetime.now(WITA)
-    # Target koin dengan volatilitas harian bagus
-    WATCHLIST = ['BTC/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT', 'PEPE/USDT', 'DOGE/USDT', 'LINK/USDT', 'AVAX/USDT']
+    WATCHLIST = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'SUI/USDT', 'NEAR/USDT', 'ONDO/USDT', 'ADA/USDT', 'XRP/USDT', 'PEPE/USDT', 'DOGE/USDT', 'LINK/USDT', 'AVAX/USDT']
     
     macro_status, macro_score = scan_global_market_native()
-    push_scan(f"🔄 Sniper Scan 15m... | Makro: {macro_status}", "heartbeat")
+    push_scan(f"🔄 Balanced Scan 15m... | Makro: {macro_status}", "heartbeat")
     scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
     
     W = st.session_state['ai_weights']
     
-    # 1. AI EXIT MANAGER (DAY TRADING - QUICK PROFIT)
+    # 1. AI EXIT MANAGER
     for sym, pos in list(st.session_state['active_trades'].items()):
         try:
             current_price = float(exchange.fetch_ticker(sym)['last'])
             pnl_pct = ((current_price - pos['entry']) / pos['entry']) * 100
             
-            # Dalam Day Trading, kita kunci profit lebih agresif (bahkan di +0.8% jika pasar bimbang)
-            trailing_trigger_pct = max(0.8, pos.get('atr_pct', 1.0) * 0.6)
+            trailing_trigger_pct = max(0.7, pos.get('atr_pct', 1.0) * 0.5)
             
             if pnl_pct >= trailing_trigger_pct and not pos.get('trailing_breakeven_active', False):
-                pos['sl'] = pos['entry'] * 1.004 # Kunci modal + Fee Bitget
+                pos['sl'] = pos['entry'] * 1.004 
                 pos['trailing_breakeven_active'] = True
-                push_log(f"🛡️ AUTO-LOCK {sym}: SL diamankan +0.4% (Sniper Mode).", "warn")
+                push_log(f"🛡️ AUTO-LOCK {sym}: SL diamankan ke modal + fee.", "warn")
 
-            dynamic_tp = pos['entry'] * (1 + (max(1.5, pos.get('atr_pct', 1.0) * 1.2) / 100))
+            dynamic_tp = pos['entry'] * (1 + (max(1.2, pos.get('atr_pct', 1.0) * 1.0) / 100))
             
             if current_price >= dynamic_tp or current_price <= pos['sl']:
                 is_win = pnl_pct > 0.05 
@@ -251,7 +236,6 @@ def autonomous_trading_loop():
                 
                 pnl_usdt = pos['alloc'] * (pnl_pct / 100)
                 
-                # Sesi Belajar (Reinforcement Learning)
                 if is_win:
                     W['win_history'] += 1
                     W['total_profit_usdt'] += pnl_usdt
@@ -270,7 +254,7 @@ def autonomous_trading_loop():
                 st.rerun()
         except: pass
 
-    # 2. AI SNIPER MATRIX SCANNER (15 MENIT)
+    # 2. BALANCED SCANNER (Lebih fleksibel mencari entry)
     for sym in WATCHLIST:
         if sym in st.session_state['active_trades']: continue
             
@@ -278,31 +262,27 @@ def autonomous_trading_loop():
         if data is None: continue
         
         rsi_15, close_price, atr_pct = data['rsi_15'], data['close'], data['atr_pct']
-        
-        if not data['is_4h_uptrend']:
-            push_scan(f"Verdict {sym} -> SKIP (Tren Makro Lemah)", "skipped")
-            scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
-            continue 
             
-        # Penilaian Agresif Skala 15 Menit
-        vote_local_trend = 1.5 if (close_price > data['ema20_15']) else 0.5
-        vote_momentum = 1.8 if (35 <= rsi_15 <= 55 and data['macd_growth']) else 0.0 # Beli saat oversold/koreksi kecil
-        vote_volatility = 1.5 if close_price <= data['bb_lower_15'] * 1.015 else 0.5
+        vote_local_trend = 1.5 if (close_price > data['ema20_15']) else 0.8
+        vote_momentum = 1.5 if (30 <= rsi_15 <= 60) else 0.2  # Rentang RSI dilebarkan agar lebih mudah masuk
+        vote_volatility = 1.3 if close_price <= data['bb_lower_15'] * 1.025 else 0.5
         
         total_score = (macro_score) + (vote_local_trend * W['trend_agent']) + (vote_momentum * W['momentum_agent']) + (vote_volatility * W['volatility_agent'])
-        threshold = 3.8 # Ambang batas ketat agar tidak asal tembak
+        
+        # DILONGRGARKAN: Threshold diturunkan dari 3.8 menjadi 3.0 agar lebih sering melakukan order
+        threshold = 3.0 
         
         push_scan(f"Target {sym} | 15m RSI: {rsi_15:.1f} | Score: {total_score:.2f}", "info")
         scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
         
         if total_score >= threshold and len(st.session_state['active_trades']) < (1 if total_eq < 10 else 2) and usdt_free >= 2.5:
             ob_ratio = fetch_orderbook_pressure(sym)
-            if ob_ratio < 0.8: # Orderbook syaratnya diperketat untuk Sniper (Bids harus kuat)
-                push_scan(f"🛑 HOLD {sym} -> Orderbook Asks Dominan (Risiko Dump 15m)", "blocked")
+            if ob_ratio < 0.65: # Sedikit dilonggarkan juga
+                push_scan(f"🛑 HOLD {sym} -> Orderbook Asks Dominan", "blocked")
                 scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
                 continue
                 
-            push_scan(f"🎯 {sym} TERKUNCI! -> 🚀 SNIPER ENTRY APPROVED!", "passed")
+            push_scan(f"🎯 {sym} TERKUNCI! -> 🚀 BALANCED ENTRY APPROVED!", "passed")
             scan_container.markdown(f'<div class="scan-container">{"".join(st.session_state["scan_reports"])}</div>', unsafe_allow_html=True)
             try:
                 alloc = max(2.20, round(usdt_free * 0.45, 2))
@@ -312,7 +292,7 @@ def autonomous_trading_loop():
                 
                 st.session_state['active_trades'][sym] = {
                     'entry': close_price, 'qty': alloc / close_price, 'alloc': alloc,
-                    'sl': close_price * 0.958, # Stop Loss sedikit lebih ketat
+                    'sl': close_price * 0.960, 
                     'time': now_wita.isoformat(),
                     'trailing_breakeven_active': False,
                     'atr_pct': atr_pct,
@@ -322,7 +302,7 @@ def autonomous_trading_loop():
                         'volatility': vote_volatility
                     }
                 }
-                push_log(f"🔫 SNIPER SHOT {sym} @ {close_price:.4f} | Size: ${alloc:.2f}", "system")
+                push_log(f"🔫 BALANCED SHOT {sym} @ {close_price:.4f} | Size: ${alloc:.2f}", "system")
                 st.rerun()
                 break
             except Exception as e:
